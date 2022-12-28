@@ -15,6 +15,11 @@ public class DungeonProfile : Profile
     private void EntityToViewModel()
     {
         CreateMap<Dungeons, DungeonViewModel>();
+        CreateMap<DungeonEntrances, DungeonEntranceViewModel>()
+            .ForMember(
+                destinationMember: dest => dest.StatusDescription,
+                memberOptions: opt => opt.MapFrom(src => src.Status.ToString())
+            );
     }
 
     private void ViewModelToEntity()
