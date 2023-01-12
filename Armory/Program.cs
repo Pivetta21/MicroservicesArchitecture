@@ -1,6 +1,8 @@
+using Armory.AsyncDataServices.Common;
 using Armory.Data;
 using Armory.IoC;
 using Microsoft.EntityFrameworkCore;
+using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,7 +29,19 @@ builder.Services.AddDbContext<ArmoryDbContext>(optionsBuilder =>
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
+builder.Services.AddSingleton<IConnectionFactory>(_ => new ConnectionFactory
+    {
+        HostName = builder.Configuration["RabbitMQ:Host"],
+        Port = int.Parse(builder.Configuration["RabbitMQ:Port"] ?? "5672"),
+        DispatchConsumersAsync = true,
+    }
+);
+
+builder.Services.AddSingleton<RabbitMqConnectionManager>();
+
 builder.Services.AddServices();
+
+builder.Services.AddAsyncDataServices();
 
 var app = builder.Build();
 

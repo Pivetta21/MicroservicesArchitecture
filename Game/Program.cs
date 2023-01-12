@@ -1,8 +1,15 @@
+using Game.AsyncDataServices.Common;
 using Game.Data;
 using Game.IoC;
 using Microsoft.EntityFrameworkCore;
+using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
+
+Console.WriteLine("\n====================================================================");
+Console.WriteLine($"Name: {AppDomain.CurrentDomain.FriendlyName} #{Guid.NewGuid()}");
+Console.WriteLine($"Host: {Environment.MachineName}");
+Console.WriteLine("====================================================================\n");
 
 builder.Services.AddControllers();
 
@@ -32,7 +39,19 @@ builder.Services.AddDbContext<GameDbContext>(optionsBuilder =>
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
+builder.Services.AddSingleton<IConnectionFactory>(_ => new ConnectionFactory
+    {
+        HostName = builder.Configuration["RabbitMQ:Host"],
+        Port = int.Parse(builder.Configuration["RabbitMQ:Port"] ?? "5672"),
+        DispatchConsumersAsync = true,
+    }
+);
+
+builder.Services.AddSingleton<RabbitMqConnectionManager>();
+
 builder.Services.AddServices();
+
+builder.Services.AddAsyncDataServices();
 
 var app = builder.Build();
 
