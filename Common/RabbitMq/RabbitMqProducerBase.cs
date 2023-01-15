@@ -1,17 +1,17 @@
+using Common.RabbitMq.Enums;
 using RabbitMQ.Client;
 
-namespace Armory.AsyncDataServices.Common;
+namespace Common.RabbitMq;
 
 public abstract class RabbitMqProducerBase : RabbitMqClientBase
 {
     protected RabbitMqProducerBase(
-        ILogger<RabbitMqProducerBase> logger,
         IConnection connection,
-        string exchangeType,
+        ExchangeTypeEnum exchangeType,
         ExchangesEnum exchange,
         QueuesEnum queue,
         string? routingKey = null
-    ) : base(logger, connection, exchangeType, exchange, queue, routingKey)
+    ) : base(connection, exchangeType, exchange, queue, routingKey)
     {
     }
 
@@ -22,7 +22,7 @@ public abstract class RabbitMqProducerBase : RabbitMqClientBase
     {
         if (Channel?.IsClosed ?? true)
         {
-            _logger.LogError("Could not publish because the channel is closed");
+            Console.WriteLine("Could not publish because the channel is closed");
             return;
         }
 

@@ -1,4 +1,4 @@
-namespace Game.AsyncDataServices.Common;
+namespace Common.RabbitMq;
 
 public interface IRabbitMqProducer<in T>
 {

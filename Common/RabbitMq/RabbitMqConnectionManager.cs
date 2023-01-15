@@ -1,6 +1,6 @@
 using RabbitMQ.Client;
 
-namespace Game.AsyncDataServices.Common;
+namespace Common.RabbitMq;
 
 public sealed class RabbitMqConnectionManager : IDisposable
 {

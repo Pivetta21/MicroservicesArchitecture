@@ -1,11 +1,10 @@
+using Common.RabbitMq.Enums;
 using RabbitMQ.Client;
 
-namespace Armory.AsyncDataServices.Common;
+namespace Common.RabbitMq;
 
 public abstract class RabbitMqClientBase : IDisposable
 {
-    protected readonly ILogger<RabbitMqClientBase> _logger;
-
     private readonly IConnection _connection;
 
     protected IModel? Channel { get; private set; }
@@ -16,37 +15,48 @@ public abstract class RabbitMqClientBase : IDisposable
     protected readonly string _routingKey;
 
     protected RabbitMqClientBase(
-        ILogger<RabbitMqClientBase> logger,
         IConnection connection,
-        string exchangeType,
+        ExchangeTypeEnum exchangeType,
         ExchangesEnum exchange,
         QueuesEnum queue,
         string? routingKey = null
     )
     {
-        _logger = logger;
-
         // Use a long-lived connection
         _connection = connection;
 
-        _exchangeType = exchangeType;
-        _queue = queue.ToString();
+        _exchangeType = exchangeType switch
+        {
+            ExchangeTypeEnum.Direct => ExchangeType.Direct,
+            ExchangeTypeEnum.Fanout => ExchangeType.Fanout,
+            ExchangeTypeEnum.Headers => ExchangeType.Headers,
+            _ => ExchangeType.Direct,
+        };
+
         _exchange = exchange.ToString();
+
+        _queue = queue.ToString();
         _routingKey = routingKey ?? _queue;
 
         ConnectToRabbitMq();
     }
 
+    protected void CreateChannel()
+    {
+        // Use one channel per "task"
+        if (Channel == null || Channel.IsClosed)
+            Channel = _connection.CreateModel();
+    }
+
     private void ConnectToRabbitMq()
     {
-        if (_connection is { IsOpen: false })
+        if (!_connection.IsOpen)
+        {
+            Console.WriteLine("Could not create a RabbitMQ client because the connection is closed");
             return;
+        }
 
-        if (Channel is { IsOpen: false })
-            return;
-
-        // Use one channel per "task"
-        Channel = _connection.CreateModel();
+        CreateChannel();
 
         Channel.ExchangeDeclare(
             type: _exchangeType,
@@ -81,11 +91,11 @@ public abstract class RabbitMqClientBase : IDisposable
                 Channel = null;
             }
 
-            _logger.LogInformation("RabbitMQ client disposed successfully");
+            Console.WriteLine("RabbitMQ client disposed successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogCritical(ex, "Something went wrong while trying to dispose the RabbitMQ Client");
+            Console.WriteLine($"Something went wrong while disposing the RabbitMQ Client: {ex.Message}");
         }
 
         GC.SuppressFinalize(this);

@@ -1,4 +1,4 @@
-namespace Armory.AsyncDataServices.Common;
+namespace Common.RabbitMq.Enums;
 
 public enum ExchangesEnum
 {

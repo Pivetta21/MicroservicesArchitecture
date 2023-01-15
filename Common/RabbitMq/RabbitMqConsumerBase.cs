@@ -1,18 +1,18 @@
+using Common.RabbitMq.Enums;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
-namespace Game.AsyncDataServices.Common;
+namespace Common.RabbitMq;
 
 public abstract class RabbitMqConsumerBase : RabbitMqClientBase
 {
     protected RabbitMqConsumerBase(
-        ILogger<RabbitMqConsumerBase> logger,
         IConnection connection,
-        string exchangeType,
+        ExchangeTypeEnum exchangeType,
         ExchangesEnum exchange,
         QueuesEnum queue,
         string? routingKey = null
-    ) : base(logger, connection, exchangeType, exchange, queue, routingKey)
+    ) : base(connection, exchangeType, exchange, queue, routingKey)
     {
         var consumer = new AsyncEventingBasicConsumer(Channel);
 
