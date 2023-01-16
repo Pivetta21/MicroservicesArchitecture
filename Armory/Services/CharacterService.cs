@@ -105,7 +105,6 @@ public class CharacterService : ICharacterService
         if (entity == null)
             return Result.Fail($"Character '{transactionId}' not found.");
 
-
         _dbContext.Remove(entity);
         var writtenEntries = await _dbContext.SaveChangesAsync();
 

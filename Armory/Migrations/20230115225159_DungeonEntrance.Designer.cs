@@ -3,6 +3,7 @@ using System;
 using Armory.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Armory.Migrations
 {
     [DbContext(typeof(ArmoryDbContext))]
-    partial class ArmoryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20230115225159_DungeonEntrance")]
+    partial class DungeonEntrance
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -138,10 +141,6 @@ namespace Armory.Migrations
                     b.Property<long>("CharacterId")
                         .HasColumnType("bigint")
                         .HasColumnName("character_id");
-
-                    b.Property<Guid>("DungeonTransactionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("dungeon_transaction_id");
 
                     b.Property<long?>("PayedFee")
                         .HasColumnType("bigint")

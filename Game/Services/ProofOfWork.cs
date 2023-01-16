@@ -1,3 +1,5 @@
+using Game.Services.Interfaces;
+
 namespace Game.Services;
 
 public class ProofOfWork : IProofOfWork

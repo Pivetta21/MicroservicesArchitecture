@@ -1,4 +1,4 @@
-namespace Game.Services;
+namespace Game.Services.Interfaces;
 
 public interface IProofOfWork
 {

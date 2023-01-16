@@ -11,6 +11,8 @@ public class ArmoryDbContext : DbContext
 
     public DbSet<Characters> Characters => Set<Characters>();
 
+    public DbSet<DungeonEntrances> DungeonEntrances => Set<DungeonEntrances>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Items>().ToTable("items");

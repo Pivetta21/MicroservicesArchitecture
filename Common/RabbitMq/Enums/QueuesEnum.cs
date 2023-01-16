@@ -2,6 +2,6 @@ namespace Common.RabbitMq.Enums;
 
 public enum QueuesEnum
 {
-    ArmoryDungeonEntrance = 1,
-    GameDungeonEntrance = 2,
+    DungeonEntranceArmory = 1,
+    DungeonEntranceGame = 2,
 }

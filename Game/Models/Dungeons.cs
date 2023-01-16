@@ -4,6 +4,8 @@ public class Dungeons
 {
     public long Id { get; set; }
 
+    public required Guid TransactionId { get; set; }
+
     public required string Name { get; set; }
 
     public required int RequiredLevel { get; set; }

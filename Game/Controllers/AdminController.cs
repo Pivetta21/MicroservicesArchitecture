@@ -1,4 +1,4 @@
-using Game.Services;
+using Game.Services.Interfaces;
 using Game.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 

@@ -1,6 +1,6 @@
-using Game.AsyncDataServices;
+using Armory.AsyncDataServices;
 
-namespace Game.IoC;
+namespace Armory.IoC;
 
 public static class InjectAsyncDataServices
 {

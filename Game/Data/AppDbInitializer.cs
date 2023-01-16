@@ -36,6 +36,7 @@ public static class AppDbInitializer
         var dungeon = new Dungeons
         {
             Name = "Ashes of Arcadia",
+            TransactionId = Guid.NewGuid(),
             RequiredLevel = 1,
             Difficulty = 1,
             Cost = 5,

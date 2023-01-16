@@ -1,7 +1,7 @@
 using FluentResults;
 using Game.ViewModels;
 
-namespace Game.Services;
+namespace Game.Services.Interfaces;
 
 public interface IAdminService
 {

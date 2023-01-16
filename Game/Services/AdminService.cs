@@ -2,6 +2,7 @@ using AutoMapper;
 using FluentResults;
 using Game.Data;
 using Game.Models;
+using Game.Services.Interfaces;
 using Game.ViewModels;
 
 namespace Game.Services;
