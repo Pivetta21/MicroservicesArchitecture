@@ -14,6 +14,8 @@ public class DungeonEntrances
 
     public required DungeonEntranceStatusEnum Status { get; set; }
 
+    public required bool Deleted { get; set; }
+
     public long CharacterId { get; set; }
     public required Characters Character { get; set; }
 }

@@ -4,9 +4,9 @@ public enum DungeonEntranceEventEnum
 {
 
     RegisterEntrance = 1,
-    RollbackCreate = 2,
+    RollbackEntrance = 2,
     ChargeFee = 3,
-    ProcessChargeFeeError = 4,
-    ProcessRegistration = 5,
+    ProcessEntranceError = 4,
+    ProcessEntrance = 5,
     RollbackChargeFee = 6,
 }
