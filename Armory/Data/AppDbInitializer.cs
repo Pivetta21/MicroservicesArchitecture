@@ -43,14 +43,12 @@ public static class AppDbInitializer
                 {
                     Armor = new Armors
                     {
-                        TransactionId = Guid.NewGuid(),
                         Name = "Basic Armor",
                         Rarity = RarityEnum.Common,
                         Resistance = 2,
                     },
                     Weapon = new Weapons
                     {
-                        TransactionId = Guid.NewGuid(),
                         Name = "Basic Weapon",
                         Rarity = RarityEnum.Common,
                         Power = 2,
@@ -68,14 +66,12 @@ public static class AppDbInitializer
                 {
                     Armor = new Armors
                     {
-                        TransactionId = Guid.NewGuid(),
                         Name = "Basic Armor",
                         Rarity = RarityEnum.Common,
                         Resistance = 2,
                     },
                     Weapon = new Weapons
                     {
-                        TransactionId = Guid.NewGuid(),
                         Name = "Basic Weapon",
                         Rarity = RarityEnum.Common,
                         Power = 2,
@@ -93,14 +89,12 @@ public static class AppDbInitializer
                 {
                     Armor = new Armors
                     {
-                        TransactionId = Guid.NewGuid(),
                         Name = "Basic Armor",
                         Rarity = RarityEnum.Common,
                         Resistance = 2,
                     },
                     Weapon = new Weapons
                     {
-                        TransactionId = Guid.NewGuid(),
                         Name = "Basic Weapon",
                         Rarity = RarityEnum.Common,
                         Power = 2,

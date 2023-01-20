@@ -7,8 +7,6 @@ public abstract class Items
 {
     public long Id { get; set; }
 
-    public required Guid TransactionId { get; set; }
-
     [MaxLength(40)]
     public required string Name { get; set; }
 

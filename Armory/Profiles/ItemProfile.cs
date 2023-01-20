@@ -9,20 +9,31 @@ public class ItemProfile : Profile
     public ItemProfile()
     {
         EntityToViewModel();
+        ViewModelToEntity();
     }
 
     private void EntityToViewModel()
     {
-        CreateMap<Armors, ArmorViewModel>()
+        CreateMap<Items, ItemViewModel>()
             .ForMember(
                 destinationMember: dest => dest.RarityDescription,
                 memberOptions: opt => opt.MapFrom(src => src.Rarity.ToString())
             );
 
+        CreateMap<Armors, ArmorViewModel>()
+            .IncludeBase<Items, ItemViewModel>();
+
         CreateMap<Weapons, WeaponViewModel>()
-            .ForMember(
-                destinationMember: dest => dest.RarityDescription,
-                memberOptions: opt => opt.MapFrom(src => src.Rarity.ToString())
-            );
+            .IncludeBase<Items, ItemViewModel>();
+    }
+
+    private void ViewModelToEntity()
+    {
+        CreateMap<ItemCreateViewModel, Items>()
+            .IncludeAllDerived();
+
+        CreateMap<ArmorCreateViewModel, Armors>();
+
+        CreateMap<WeaponCreateViewModel, Weapons>();
     }
 }

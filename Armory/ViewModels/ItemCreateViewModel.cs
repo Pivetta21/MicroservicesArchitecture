@@ -1,26 +1,24 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Game.Models.Enums;
+using Armory.Models.Enums;
 
-namespace Game.ViewModels;
+namespace Armory.ViewModels;
 
-[JsonConverter(typeof(ItemViewModelJsonConverter))]
-public abstract class ItemViewModel
+[JsonConverter(typeof(ItemCreateViewModelJsonConverter))]
+public abstract class ItemCreateViewModel
 {
-    public Guid TransactionId { get; set; }
-
+    [Required]
+    [MaxLength(40)]
     public string Name { get; set; } = string.Empty;
 
+    [Required]
     public RarityEnum Rarity { get; set; }
-
-    public int MaxQuality { get; set; }
-
-    public string RarityDescription { get; set; } = string.Empty;
 }
 
-public class ItemViewModelJsonConverter : JsonConverter<ItemViewModel>
+public class ItemCreateViewModelJsonConverter : JsonConverter<ItemCreateViewModel>
 {
-    public override ItemViewModel? Read(
+    public override ItemCreateViewModel? Read(
         ref Utf8JsonReader reader,
         Type typeToConvert,
         JsonSerializerOptions options
@@ -30,7 +28,7 @@ public class ItemViewModelJsonConverter : JsonConverter<ItemViewModel>
 
         try
         {
-            return JsonSerializer.Deserialize<WeaponViewModel>(ref reader, options);
+            return JsonSerializer.Deserialize<WeaponCreateViewModel>(ref reader, options);
         }
         catch (Exception ex)
         {
@@ -39,7 +37,7 @@ public class ItemViewModelJsonConverter : JsonConverter<ItemViewModel>
 
         try
         {
-            return JsonSerializer.Deserialize<ArmorViewModel>(ref reader, options);
+            return JsonSerializer.Deserialize<ArmorCreateViewModel>(ref reader, options);
         }
         catch (Exception ex)
         {
@@ -52,7 +50,7 @@ public class ItemViewModelJsonConverter : JsonConverter<ItemViewModel>
 
     public override void Write(
         Utf8JsonWriter writer,
-        ItemViewModel value,
+        ItemCreateViewModel value,
         JsonSerializerOptions options
     )
     {

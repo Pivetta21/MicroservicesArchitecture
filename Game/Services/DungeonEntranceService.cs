@@ -31,18 +31,23 @@ public class DungeonEntranceService : IDungeonEntranceService
         _dungeonEntranceProducer = dungeonEntranceProducer;
     }
 
-    public async Task<Result<DungeonEntranceViewModel>> GetById(long id)
+    public async Task<IEnumerable<DungeonEntranceViewModel>> GetAll()
     {
-        var entrance = await _dbContext
-                             .DungeonEntrances
-                             .FirstOrDefaultAsync(x => x.Id == id);
+        var entrances = await _dbContext.DungeonEntrances
+                                        .OrderByDescending(e => e.Id)
+                                        .ToListAsync();
 
-        if (entrance == null)
-            return Result.Fail($"A dungeon entrance with id equal to '{id}' could not be found");
+        return _mapper.Map<IEnumerable<DungeonEntranceViewModel>>(entrances);
+    }
 
-        _logger.LogInformation("Dungeon entrance '{DungeonEntranceId}' found successfully", id);
+    public async Task<Result<DungeonEntranceViewModel>> GetByTransactionId(Guid transactionId)
+    {
+        var entrance = await _dbContext.DungeonEntrances
+                                       .FirstOrDefaultAsync(x => x.TransactionId == transactionId);
 
-        return Result.Ok(_mapper.Map<DungeonEntranceViewModel>(entrance));
+        return entrance == null
+            ? Result.Fail($"A dungeon entrance with uuid equal to '{transactionId}' could not be found")
+            : Result.Ok(_mapper.Map<DungeonEntranceViewModel>(entrance));
     }
 
     public Task ProcessDungeonEntrance(DungeonEntranceArmoryDto dto)

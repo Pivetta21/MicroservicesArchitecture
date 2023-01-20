@@ -10,6 +10,7 @@ public static class InjectServices
         services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<IDungeonService, DungeonService>();
         services.AddScoped<IDungeonEntranceService, DungeonEntranceService>();
+        services.AddScoped<IDungeonJournalService, DungeonJournalService>();
 
         services.AddSingleton<IProofOfWork, ProofOfWork>();
     }

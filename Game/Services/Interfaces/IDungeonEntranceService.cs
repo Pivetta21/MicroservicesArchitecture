@@ -6,7 +6,9 @@ namespace Game.Services.Interfaces;
 
 public interface IDungeonEntranceService
 {
-    Task<Result<DungeonEntranceViewModel>> GetById(long id);
+    Task<IEnumerable<DungeonEntranceViewModel>> GetAll();
+
+    Task<Result<DungeonEntranceViewModel>> GetByTransactionId(Guid transactionId);
 
     Task ProcessDungeonEntrance(DungeonEntranceArmoryDto dto);
 }

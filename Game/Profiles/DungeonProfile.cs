@@ -16,6 +16,7 @@ public class DungeonProfile : Profile
     {
         CreateMap<Dungeons, DungeonViewModel>();
         CreateMap<DungeonEntrances, DungeonEntranceViewModel>();
+        CreateMap<DungeonJournals, DungeonJournalViewModel>();
     }
 
     private void ViewModelToEntity()

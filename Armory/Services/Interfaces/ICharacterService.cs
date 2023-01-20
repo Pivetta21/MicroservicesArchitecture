@@ -14,4 +14,6 @@ public interface ICharacterService
     Task<Result> Update(Guid transactionId, CharacterUpdateViewModel updateViewModel);
 
     Task<Result> Delete(Guid transactionId);
+
+    Task<Result> AddRewardToInventory(AddRewardToCharacterViewModel addRewardViewModel);
 }

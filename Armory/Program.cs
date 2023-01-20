@@ -24,8 +24,18 @@ Console.WriteLine("=============================================================
 builder.Host.UseSerilog();
 
 builder.Services.AddControllers();
+
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+    {
+        options.UseAllOfForInheritance();
+        options.UseOneOfForPolymorphism();
+
+        options.SelectSubTypesUsing(baseType =>
+            typeof(Program).Assembly.GetTypes().Where(type => type.IsSubclassOf(baseType))
+        );
+    }
+);
 
 builder.Services.AddDbContext<ArmoryDbContext>(optionsBuilder =>
     {

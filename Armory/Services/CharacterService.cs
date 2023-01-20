@@ -45,19 +45,17 @@ public class CharacterService : ICharacterService
             Name = createViewModel.Name,
             Specialization = createViewModel.Specialization,
             TransactionId = Guid.NewGuid(),
-            UserTransactionId = Guid.Empty,
+            UserTransactionId = Guid.NewGuid(),
             Build = new Builds
             {
                 Armor = new Armors
                 {
-                    TransactionId = Guid.NewGuid(),
                     Name = "Basic Armor",
                     Rarity = RarityEnum.Common,
                     Resistance = 2,
                 },
                 Weapon = new Weapons
                 {
-                    TransactionId = Guid.NewGuid(),
                     Name = "Basic Weapon",
                     Rarity = RarityEnum.Common,
                     Power = 2,
@@ -100,10 +98,17 @@ public class CharacterService : ICharacterService
         return writtenEntries > 0 ? Result.Ok() : Result.Fail($"Could not delete character '{transactionId}'");
     }
 
+    // TODO
+    public async Task<Result> AddRewardToInventory(AddRewardToCharacterViewModel addRewardViewModel)
+    {
+        return default;
+    }
+
     private IQueryable<Characters> QueryEager()
     {
         return _dbContext.Characters
                          .Include(c => c.Inventory)
+                         .Include(c => c.Inventory.Items)
                          .Include(c => c.Build.Armor)
                          .Include(c => c.Build.Weapon);
     }

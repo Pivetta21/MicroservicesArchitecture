@@ -10,6 +10,8 @@ public class DungeonJournals
 
     public required Guid CharacterTransactionId { get; set; }
 
+    public required Guid DungeonEntranceTransactionId { get; set; }
+
     public long DungeonId { get; set; }
     public required Dungeons Dungeon { get; set; }
 

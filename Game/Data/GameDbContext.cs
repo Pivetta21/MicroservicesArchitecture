@@ -10,7 +10,9 @@ public class GameDbContext : DbContext
     }
 
     public DbSet<Dungeons> Dungeons => Set<Dungeons>();
+
     public DbSet<DungeonJournals> DungeonJournals => Set<DungeonJournals>();
+
     public DbSet<DungeonEntrances> DungeonEntrances => Set<DungeonEntrances>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
