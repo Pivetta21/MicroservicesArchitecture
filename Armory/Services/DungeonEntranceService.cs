@@ -62,7 +62,7 @@ public class DungeonEntranceService : IDungeonEntranceService
         );
 
         _logger.LogInformation(
-            "Character with uuid {} requested an entrance registration for dungeon {}",
+            "Character with uuid {CharacterTransactionId} requested an entrance registration for dungeon {DungeonTransactionId}",
             character.TransactionId,
             body.DungeonTransactionId
         );
@@ -125,7 +125,7 @@ public class DungeonEntranceService : IDungeonEntranceService
         }
 
         _logger.LogInformation(
-            "Fee charged successfully for dungeon entrance {}, sending {} event to Game queue",
+            "Fee charged successfully for dungeon entrance {DungeonEntranceTransactionId}, sending {DungeonEntranceEvent} event to Game queue",
             dungeonEntrance.TransactionId,
             DungeonEntranceEventEnum.ProcessEntrance
         );
@@ -174,7 +174,7 @@ public class DungeonEntranceService : IDungeonEntranceService
         else
         {
             _logger.LogInformation(
-                "Character with uuid {} was refunded successfully",
+                "Character with uuid {CharacterTransactionId} was refunded successfully",
                 dungeonEntrance.Character.TransactionId
             );
         }
@@ -194,9 +194,19 @@ public class DungeonEntranceService : IDungeonEntranceService
         var writtenEntries = await _dbContext.SaveChangesAsync();
 
         if (writtenEntries <= 0)
-            _logger.LogCritical("Dungeon entrance {} could not be deleted", dungeonEntranceTransactionId);
-        else
-            _logger.LogInformation("Dungeon entrance {} was successfully deleted", dungeonEntranceTransactionId);
+        {
+            _logger.LogCritical(
+                "Dungeon entrance {DungeonEntranceTransactionId} could not be deleted",
+                dungeonEntranceTransactionId
+            );
+
+            return;
+        }
+
+        _logger.LogInformation(
+            "Dungeon entrance {DungeonEntranceTransactionId} was successfully deleted",
+            dungeonEntranceTransactionId
+        );
     }
 
     private Task<DungeonEntrances?> GetDungeonEntranceByTransactionId(Guid transactionId)
@@ -210,7 +220,7 @@ public class DungeonEntranceService : IDungeonEntranceService
     private void PublishProcessEntranceError(Guid dungeonEntranceTransactionId, string errorMessage)
     {
         _logger.LogInformation(
-            "{}, sending {} event to Game queue",
+            "{}, sending {DungeonEntranceEvent} event to Game queue",
             errorMessage,
             DungeonEntranceEventEnum.ProcessEntranceError
         );

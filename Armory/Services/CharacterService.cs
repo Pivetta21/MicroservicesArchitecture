@@ -12,17 +12,14 @@ namespace Armory.Services;
 public class CharacterService : ICharacterService
 {
     private readonly IMapper _mapper;
-    private readonly ILogger<CharacterService> _logger;
     private readonly ArmoryDbContext _dbContext;
 
     public CharacterService(
         IMapper mapper,
-        ILogger<CharacterService> logger,
         ArmoryDbContext dbContext
     )
     {
         _mapper = mapper;
-        _logger = logger;
         _dbContext = dbContext;
     }
 
@@ -36,12 +33,9 @@ public class CharacterService : ICharacterService
     {
         var character = await QueryEager().FirstOrDefaultAsync(a => a.TransactionId == transactionId);
 
-        if (character == null)
-            return Result.Fail($"Not found a character with transaction id equal to '{transactionId}'");
-
-        _logger.LogInformation("Character '{}' found successfully", transactionId);
-
-        return Result.Ok(_mapper.Map<CharacterViewModel>(character));
+        return character == null
+            ? Result.Fail<CharacterViewModel>($"Not found a character with transaction id equal to '{transactionId}'")
+            : Result.Ok(_mapper.Map<CharacterViewModel>(character));
     }
 
     public async Task<Result<CharacterViewModel>> Create(CharacterCreateViewModel createViewModel)
@@ -75,12 +69,9 @@ public class CharacterService : ICharacterService
         _dbContext.Characters.Add(entity);
         var writtenEntries = await _dbContext.SaveChangesAsync();
 
-        if (writtenEntries <= 0)
-            return Result.Fail("Could not create a new character.");
-
-        _logger.LogInformation("Character '{}' created successfully", entity.TransactionId);
-
-        return Result.Ok(_mapper.Map<CharacterViewModel>(entity));
+        return writtenEntries <= 0
+            ? Result.Fail<CharacterViewModel>("Could not create a new character.")
+            : Result.Ok(_mapper.Map<CharacterViewModel>(entity));
     }
 
     public async Task<Result> Update(Guid transactionId, CharacterUpdateViewModel updateViewModel)
@@ -92,8 +83,6 @@ public class CharacterService : ICharacterService
 
         _mapper.Map(updateViewModel, entity);
         var writtenEntries = await _dbContext.SaveChangesAsync();
-
-        _logger.LogInformation("Character '{}' updated successfully", transactionId);
 
         return writtenEntries > 0 ? Result.Ok() : Result.Fail($"Could not update character '{transactionId}'");
     }
@@ -107,8 +96,6 @@ public class CharacterService : ICharacterService
 
         _dbContext.Remove(entity);
         var writtenEntries = await _dbContext.SaveChangesAsync();
-
-        _logger.LogInformation("Character '{}' deleted successfully", transactionId);
 
         return writtenEntries > 0 ? Result.Ok() : Result.Fail($"Could not delete character '{transactionId}'");
     }

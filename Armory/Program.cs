@@ -3,6 +3,16 @@ using Armory.IoC;
 using Common.RabbitMq;
 using Microsoft.EntityFrameworkCore;
 using RabbitMQ.Client;
+using Serilog;
+using Serilog.Events;
+
+Log.Logger = new LoggerConfiguration()
+             .MinimumLevel.Information()
+             .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+             .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)
+             .MinimumLevel.Override("Game", LogEventLevel.Information)
+             .WriteTo.Console()
+             .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +20,8 @@ Console.WriteLine("\n===========================================================
 Console.WriteLine($"Name: {AppDomain.CurrentDomain.FriendlyName} #{Guid.NewGuid()}");
 Console.WriteLine($"Host: {Environment.MachineName}");
 Console.WriteLine("====================================================================\n");
+
+builder.Host.UseSerilog();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

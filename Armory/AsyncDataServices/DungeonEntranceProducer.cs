@@ -33,7 +33,11 @@ public class DungeonEntranceProducer : RabbitMqProducerBase, IRabbitMqProducer<D
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Publishing of a new dungeon entrance '{}' failed", @event.DungeonTransactionId);
+            _logger.LogError(
+                ex,
+                "Publishing of a new dungeon entrance '{DungeonTransactionId}' failed",
+                @event.DungeonTransactionId
+            );
         }
     }
 }

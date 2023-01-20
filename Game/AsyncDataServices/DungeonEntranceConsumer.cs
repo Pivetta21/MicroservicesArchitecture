@@ -29,7 +29,7 @@ public class DungeonEntranceConsumer : RabbitMqConsumerBase, IHostedService
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Consumer '{}' started", nameof(DungeonEntranceConsumer));
+        _logger.LogInformation("Consumer '{ConsumerName}' started", nameof(DungeonEntranceConsumer));
         return Task.CompletedTask;
     }
 
@@ -37,7 +37,7 @@ public class DungeonEntranceConsumer : RabbitMqConsumerBase, IHostedService
     {
         base.Dispose();
 
-        _logger.LogInformation("Consumer '{}' stopped", nameof(DungeonEntranceConsumer));
+        _logger.LogInformation("Consumer '{ConsumerName}' stopped", nameof(DungeonEntranceConsumer));
         return Task.CompletedTask;
     }
 
@@ -50,7 +50,7 @@ public class DungeonEntranceConsumer : RabbitMqConsumerBase, IHostedService
         {
             var message = Encoding.UTF8.GetString(@event.Body.ToArray());
 
-            _logger.LogInformation("Message {} is being processed", message);
+            _logger.LogInformation("Message {@Body} is being processed", message);
 
             var dungeonEntranceDto = JsonSerializer.Deserialize<DungeonEntranceArmoryDto>(message);
 
@@ -62,13 +62,13 @@ public class DungeonEntranceConsumer : RabbitMqConsumerBase, IHostedService
 
             await service.ProcessDungeonEntrance(dungeonEntranceDto);
 
-            _logger.LogInformation("Message {} was consumed successfully", message);
+            _logger.LogInformation("Message {@Body} was consumed successfully", message);
         }
         catch (Exception ex)
         {
             _logger.LogError(
                 ex,
-                "An error happened while consuming a message with the following correlation id {}",
+                "An error happened while consuming a message with the following correlation id {CorrelationId}",
                 @event.BasicProperties.CorrelationId
             );
         }

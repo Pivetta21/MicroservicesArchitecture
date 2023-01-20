@@ -40,7 +40,7 @@ public class DungeonEntranceService : IDungeonEntranceService
         if (entrance == null)
             return Result.Fail($"A dungeon entrance with id equal to '{id}' could not be found");
 
-        _logger.LogInformation("Dungeon entrance '{}' found successfully", id);
+        _logger.LogInformation("Dungeon entrance '{DungeonEntranceId}' found successfully", id);
 
         return Result.Ok(_mapper.Map<DungeonEntranceViewModel>(entrance));
     }
@@ -97,7 +97,7 @@ public class DungeonEntranceService : IDungeonEntranceService
         }
 
         _logger.LogInformation(
-            "Dungeon entrance {} persisted successfully, sending {} event to Armory queue",
+            "Dungeon entrance {DungeonEntranceTransactionId} persisted successfully, sending {DungeonEntranceEvent} event to Armory queue",
             dungeonEntrance.TransactionId,
             DungeonEntranceEventEnum.ChargeFee
         );
@@ -141,7 +141,7 @@ public class DungeonEntranceService : IDungeonEntranceService
         else
         {
             _logger.LogInformation(
-                "Dungeon entrance {} processed successfully",
+                "Dungeon entrance {DungeonEntranceTransactionId} processed successfully",
                 dungeonEntrance.TransactionId
             );
         }
@@ -167,7 +167,7 @@ public class DungeonEntranceService : IDungeonEntranceService
         if (writtenEntries <= 0)
         {
             _logger.LogCritical(
-                "Dungeon entrance {} could not be removed",
+                "Dungeon entrance {DungeonEntranceTransactionId} could not be removed",
                 dungeonEntrance.TransactionId
             );
         }
@@ -188,7 +188,7 @@ public class DungeonEntranceService : IDungeonEntranceService
     private void PublishRollbackEntrance(Guid dungeonEntranceTransactionId, string errorMessage)
     {
         _logger.LogInformation(
-            "{}, sending {} event to Armory queue",
+            "{}, sending {DungeonEntranceEvent} event to Armory queue",
             errorMessage,
             DungeonEntranceEventEnum.RollbackEntrance
         );
@@ -205,7 +205,7 @@ public class DungeonEntranceService : IDungeonEntranceService
     private void PublishRollbackChargeFee(Guid dungeonEntranceTransactionId, string errorMessage)
     {
         _logger.LogInformation(
-            "{}, sending {} to Armory queue",
+            "{}, sending {DungeonEntranceEvent} to Armory queue",
             errorMessage,
             DungeonEntranceEventEnum.RollbackChargeFee
         );

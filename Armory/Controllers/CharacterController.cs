@@ -8,15 +8,10 @@ namespace Armory.Controllers;
 [Route("character")]
 public class CharacterController : ControllerBase
 {
-    private readonly ILogger<CharacterController> _logger;
     private readonly ICharacterService _characterService;
 
-    public CharacterController(
-        ILogger<CharacterController> logger,
-        ICharacterService characterService
-    )
+    public CharacterController(ICharacterService characterService)
     {
-        _logger = logger;
         _characterService = characterService;
     }
 
@@ -30,8 +25,6 @@ public class CharacterController : ControllerBase
     [HttpGet("{transactionId:guid}")]
     public async Task<ActionResult<CharacterViewModel>> GetOne(Guid transactionId)
     {
-        _logger.LogDebug("Searching for a character with transaction id equal to '{}'", transactionId);
-
         var result = await _characterService.GetByTransactionId(transactionId);
         return result.IsSuccess ? Ok(result.Value) : NotFound();
     }
@@ -39,8 +32,6 @@ public class CharacterController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<CharacterViewModel>> Create(CharacterCreateViewModel body)
     {
-        _logger.LogDebug("Trying to create a {} named {}", body.Specialization.ToString(), body.Name);
-
         var result = await _characterService.Create(body);
 
         if (result.IsSuccess)

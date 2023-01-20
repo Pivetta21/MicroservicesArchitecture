@@ -32,7 +32,7 @@ public class DungeonEntranceProducer : RabbitMqProducerBase, IRabbitMqProducer<D
             BasicPublish(body);
 
             _logger.LogInformation(
-                "Successfully published a {} for dungeon entrance {}",
+                "Successfully published a {DungeonEntranceEvent} for dungeon entrance {DungeonEntranceTransactionId}",
                 @event.DungeonEntranceEvent,
                 @event.DungeonEntranceTransactionId
             );
@@ -41,7 +41,7 @@ public class DungeonEntranceProducer : RabbitMqProducerBase, IRabbitMqProducer<D
         {
             _logger.LogError(
                 ex,
-                "Publishing of a {} for dungeon entrance {} failed",
+                "Publishing of a {DungeonEntranceEvent} for dungeon entrance {DungeonEntranceTransactionId} failed",
                 @event.DungeonEntranceEvent,
                 @event.DungeonEntranceTransactionId
             );

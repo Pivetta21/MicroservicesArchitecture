@@ -35,7 +35,7 @@ public class AdminService : IAdminService
         if (writtenEntries <= 0)
             return Result.Fail("Could not create a new dungeon.");
 
-        _logger.LogInformation("Dungeon '{}' created successfully", entity.Name);
+        _logger.LogInformation("Dungeon '{@Dungeon}' created successfully", entity);
         return Result.Ok(_mapper.Map<DungeonViewModel>(entity));
     }
 }
