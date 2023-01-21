@@ -41,9 +41,40 @@ public class AdminService : IAdminService
             : Result.Ok(_mapper.Map<ItemViewModel>(entity));
     }
 
-    // TODO
     public async Task<Result<InventoryViewModel>> AddItemToCharacter(AddItemToCharacterViewModel addItemViewModel)
     {
-        return default;
+        var item = await _dbContext
+                         .Items
+                         .FirstOrDefaultAsync(i => i.Id == addItemViewModel.ItemId);
+
+        if (item == null)
+            return Result.Fail<InventoryViewModel>($"Item {addItemViewModel.ItemId} not found");
+
+        if (item.InventoryId != null)
+            return Result.Fail<InventoryViewModel>($"Item {item.Id} is already allocated to an inventory");
+
+        var character = await _dbContext
+                              .Characters
+                              .Include(c => c.Inventory.Items)
+                              .Include(c => c.Build)
+                              .FirstOrDefaultAsync(c => c.TransactionId == addItemViewModel.CharacterTransactionId);
+
+        if (character == null)
+            return Result.Fail<InventoryViewModel>($"Character {addItemViewModel.CharacterTransactionId} not found");
+        
+        if (character.Inventory.Items.Count >= 20)
+            return Result.Fail<InventoryViewModel>($"Character {character.TransactionId} inventory is full");
+
+        if (character.Build.ArmorId == item.Id || character.Build.WeaponId == item.Id)
+            return Result.Fail<InventoryViewModel>($"Item {item.Id} os already allocated to an build slot");
+
+        item.InventoryId = character.InventoryId;
+
+        _dbContext.Items.Update(item);
+        var writtenEntries = await _dbContext.SaveChangesAsync();
+
+        return writtenEntries <= 0
+            ? Result.Fail<InventoryViewModel>("Could not add a new item to character.")
+            : Result.Ok(_mapper.Map<InventoryViewModel>(character.Inventory));
     }
 }

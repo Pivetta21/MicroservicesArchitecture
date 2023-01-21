@@ -9,6 +9,9 @@ namespace Armory.ViewModels;
 public abstract class ItemCreateViewModel
 {
     [Required]
+    public Guid TransactionId { get; set; }
+
+    [Required]
     [MaxLength(40)]
     public string Name { get; set; } = string.Empty;
 

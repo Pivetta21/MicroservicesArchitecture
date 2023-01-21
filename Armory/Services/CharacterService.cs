@@ -25,7 +25,10 @@ public class CharacterService : ICharacterService
 
     public async Task<IEnumerable<CharacterViewModel>> GetAll()
     {
-        var characters = await QueryEager().ToListAsync();
+        var characters = await QueryEager()
+                               .OrderByDescending(c => c.Id)
+                               .ToListAsync();
+
         return _mapper.Map<IEnumerable<CharacterViewModel>>(characters);
     }
 
@@ -98,16 +101,37 @@ public class CharacterService : ICharacterService
         return writtenEntries > 0 ? Result.Ok() : Result.Fail($"Could not delete character '{transactionId}'");
     }
 
-    // TODO
-    public async Task<Result> AddRewardToInventory(AddRewardToCharacterViewModel addRewardViewModel)
+    public async Task<Result<InventoryViewModel>> AddRewardToInventory(AddRewardToCharacterViewModel addRewardViewModel)
     {
-        return default;
+        var characterTransactionId = addRewardViewModel.CharacterTransactionId;
+        var reward = addRewardViewModel.Reward;
+
+        var character = await _dbContext
+                              .Characters
+                              .Include(c => c.Inventory.Items)
+                              .Include(c => c.Build)
+                              .FirstOrDefaultAsync(c => c.TransactionId == characterTransactionId);
+
+        if (character == null)
+            return Result.Fail<InventoryViewModel>($"Character {characterTransactionId} not found");
+
+        if (character.Inventory.Items.Count >= 20)
+            return Result.Fail<InventoryViewModel>($"Character {character.TransactionId} inventory is full");
+
+        var item = _mapper.Map<Items>(reward);
+        item.InventoryId = character.InventoryId;
+
+        _dbContext.Items.Add(item);
+        var writtenEntries = await _dbContext.SaveChangesAsync();
+
+        return writtenEntries <= 0
+            ? Result.Fail<InventoryViewModel>("Could not add a new reward to a character inventory.")
+            : Result.Ok(_mapper.Map<InventoryViewModel>(character.Inventory));
     }
 
     private IQueryable<Characters> QueryEager()
     {
         return _dbContext.Characters
-                         .Include(c => c.Inventory)
                          .Include(c => c.Inventory.Items)
                          .Include(c => c.Build.Armor)
                          .Include(c => c.Build.Weapon);

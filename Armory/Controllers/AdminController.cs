@@ -33,4 +33,16 @@ public class AdminController : ControllerBase
         var errorResponse = result.Errors.Select(e => new { e.Message });
         return BadRequest(errorResponse);
     }
+
+    [HttpPost("add-item")]
+    public async Task<ActionResult<InventoryViewModel>> AddItemToCharacterInventory(AddItemToCharacterViewModel body)
+    {
+        var result = await _characterService.AddItemToCharacter(body);
+
+        if (result.IsSuccess)
+            return Ok(result.Value);
+
+        var errorResponse = result.Errors.Select(e => new { e.Message });
+        return BadRequest(errorResponse);
+    }
 }

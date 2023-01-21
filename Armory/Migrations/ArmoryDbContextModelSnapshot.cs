@@ -210,6 +210,10 @@ namespace Armory.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("rarity");
 
+                    b.Property<Guid>("TransactionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("transaction_id");
+
                     b.HasKey("Id");
 
                     b.HasIndex("InventoryId")

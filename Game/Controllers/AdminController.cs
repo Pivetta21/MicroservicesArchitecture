@@ -15,15 +15,29 @@ public class AdminController : ControllerBase
         _adminService = adminService;
     }
 
+    [HttpGet("dungeon")]
+    public async Task<ActionResult<IEnumerable<DungeonViewModel>>> Get()
+    {
+        var response = await _adminService.GetAll();
+        return Ok(response);
+    }
+
     [HttpPost("dungeon")]
     public async Task<IActionResult> CreateDungeon(DungeonCreateViewModel body)
     {
-        var result = await _adminService.Create(body);
+        var result = await _adminService.CreateDungeon(body);
 
         if (result.IsSuccess)
             return Ok(result.Value);
 
         var errorResponse = result.Errors.Select(e => new { e.Message });
         return BadRequest(errorResponse);
+    }
+
+    [HttpDelete("dungeon/{transactionId:guid}")]
+    public async Task<IActionResult> DeleteDungeon(Guid transactionId)
+    {
+        var result = await _adminService.DeleteDungeon(transactionId);
+        return result.IsSuccess ? NoContent() : NotFound(result.Errors.Select(e => new { e.Message }));
     }
 }

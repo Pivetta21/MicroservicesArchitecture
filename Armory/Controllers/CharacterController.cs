@@ -54,4 +54,16 @@ public class CharacterController : ControllerBase
         var result = await _characterService.Delete(transactionId);
         return result.IsSuccess ? NoContent() : NotFound(result.Errors.Select(e => new { e.Message }));
     }
+
+    [HttpPost("add-reward-to-inventory")]
+    public async Task<IActionResult> AddRewardToInventory(AddRewardToCharacterViewModel body)
+    {
+        var result = await _characterService.AddRewardToInventory(body);
+
+        if (result.IsSuccess)
+            return Ok(result.Value);
+
+        var errorResponse = result.Errors.Select(e => new { e.Message });
+        return BadRequest(errorResponse);
+    }
 }

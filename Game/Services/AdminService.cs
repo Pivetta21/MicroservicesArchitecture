@@ -4,27 +4,35 @@ using Game.Data;
 using Game.Models;
 using Game.Services.Interfaces;
 using Game.ViewModels;
+using Microsoft.EntityFrameworkCore;
 
 namespace Game.Services;
 
 public class AdminService : IAdminService
 {
-    private readonly ILogger<AdminService> _logger;
     private readonly IMapper _mapper;
     private readonly GameDbContext _dbContext;
 
     public AdminService(
-        ILogger<AdminService> logger,
         IMapper mapper,
         GameDbContext dbContext
     )
     {
-        _logger = logger;
         _mapper = mapper;
         _dbContext = dbContext;
     }
 
-    public async Task<Result<DungeonViewModel>> Create(DungeonCreateViewModel createViewModel)
+    public async Task<IEnumerable<DungeonViewModel>> GetAll()
+    {
+        var dungeons = await _dbContext.Dungeons
+                                       .Include(d => d.Rewards)
+                                       .OrderByDescending(d => d.Id)
+                                       .ToListAsync();
+
+        return _mapper.Map<IEnumerable<DungeonViewModel>>(dungeons);
+    }
+
+    public async Task<Result<DungeonViewModel>> CreateDungeon(DungeonCreateViewModel createViewModel)
     {
         var entity = _mapper.Map<Dungeons>(createViewModel);
 
@@ -32,10 +40,21 @@ public class AdminService : IAdminService
 
         var writtenEntries = await _dbContext.SaveChangesAsync();
 
-        if (writtenEntries <= 0)
-            return Result.Fail("Could not create a new dungeon.");
+        return writtenEntries <= 0
+            ? Result.Fail("Could not create a new dungeon.")
+            : Result.Ok(_mapper.Map<DungeonViewModel>(entity));
+    }
 
-        _logger.LogInformation("Dungeon '{@Dungeon}' created successfully", entity);
-        return Result.Ok(_mapper.Map<DungeonViewModel>(entity));
+    public async Task<Result> DeleteDungeon(Guid transactionId)
+    {
+        var entity = await _dbContext.Dungeons.FirstOrDefaultAsync(c => c.TransactionId == transactionId);
+
+        if (entity == null)
+            return Result.Fail($"Dungeon '{transactionId}' not found.");
+
+        _dbContext.Remove(entity);
+        var writtenEntries = await _dbContext.SaveChangesAsync();
+
+        return writtenEntries > 0 ? Result.Ok() : Result.Fail($"Could not delete dungeon '{transactionId}'");
     }
 }
