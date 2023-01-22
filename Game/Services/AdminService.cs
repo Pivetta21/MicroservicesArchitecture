@@ -47,7 +47,8 @@ public class AdminService : IAdminService
 
     public async Task<Result> DeleteDungeon(Guid transactionId)
     {
-        var entity = await _dbContext.Dungeons.FirstOrDefaultAsync(c => c.TransactionId == transactionId);
+        var entity = await _dbContext.Dungeons
+                                     .FirstOrDefaultAsync(d => d.TransactionId == transactionId);
 
         if (entity == null)
             return Result.Fail($"Dungeon '{transactionId}' not found.");

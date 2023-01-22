@@ -13,6 +13,8 @@ public class ArmoryDbContext : DbContext
 
     public DbSet<Items> Items => Set<Items>();
 
+    public DbSet<Builds> Builds => Set<Builds>();
+
     public DbSet<DungeonEntrances> DungeonEntrances => Set<DungeonEntrances>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -2,6 +2,7 @@ using Armory.Data;
 using Armory.Models;
 using Armory.Models.Enums;
 using Armory.Services.Interfaces;
+using Armory.SyncDataServices;
 using Armory.ViewModels;
 using AutoMapper;
 using FluentResults;
@@ -13,14 +14,17 @@ public class CharacterService : ICharacterService
 {
     private readonly IMapper _mapper;
     private readonly ArmoryDbContext _dbContext;
+    private readonly GameItemsHttpService _gameItemsHttpService;
 
     public CharacterService(
         IMapper mapper,
-        ArmoryDbContext dbContext
+        ArmoryDbContext dbContext,
+        GameItemsHttpService gameItemsHttpService
     )
     {
         _mapper = mapper;
         _dbContext = dbContext;
+        _gameItemsHttpService = gameItemsHttpService;
     }
 
     public async Task<IEnumerable<CharacterViewModel>> GetAll()
@@ -101,32 +105,108 @@ public class CharacterService : ICharacterService
         return writtenEntries > 0 ? Result.Ok() : Result.Fail($"Could not delete character '{transactionId}'");
     }
 
-    public async Task<Result<InventoryViewModel>> AddRewardToInventory(AddRewardToCharacterViewModel addRewardViewModel)
+    public async Task<Result<InventoryViewModel>> SellItem(Guid characterTransactionId, long itemId)
     {
-        var characterTransactionId = addRewardViewModel.CharacterTransactionId;
-        var reward = addRewardViewModel.Reward;
-
-        var character = await _dbContext
-                              .Characters
-                              .Include(c => c.Inventory.Items)
-                              .Include(c => c.Build)
-                              .FirstOrDefaultAsync(c => c.TransactionId == characterTransactionId);
+        var character = await _dbContext.Characters
+                                        .Include(c => c.Inventory.Items)
+                                        .FirstOrDefaultAsync(c => c.TransactionId == characterTransactionId);
 
         if (character == null)
             return Result.Fail<InventoryViewModel>($"Character {characterTransactionId} not found");
 
-        if (character.Inventory.Items.Count >= 20)
-            return Result.Fail<InventoryViewModel>($"Character {character.TransactionId} inventory is full");
+        var item = await _dbContext.Items.FirstOrDefaultAsync(i => i.Id == itemId);
 
-        var item = _mapper.Map<Items>(reward);
-        item.InventoryId = character.InventoryId;
+        if (item == null)
+            return Result.Fail<InventoryViewModel>($"Item {itemId} not found");
 
-        _dbContext.Items.Add(item);
+        var isOnBuild = await _dbContext.Builds
+                                        .Where(b => b.Id == character.BuildId)
+                                        .AnyAsync(b => b.ArmorId == item.Id || b.WeaponId == item.Id);
+
+        if (isOnBuild)
+            return Result.Fail<InventoryViewModel>($"Item {item.Id} cant be sold because is allocated to your build");
+
+        var isOnInventory = await _dbContext.Items
+                                            .Where(i => i.InventoryId == character.InventoryId)
+                                            .AnyAsync(i => i.Id == item.Id);
+
+        if (!isOnInventory)
+            return Result.Fail<InventoryViewModel>($"Item {item.Id} can only be sold if present in your inventory");
+
+        var gameItem = await _gameItemsHttpService.GetItemAsync(item.TransactionId);
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+        try
+        {
+            character.Gold += gameItem?.Price ?? 0;
+            _dbContext.Characters.Update(character);
+
+            if (await _dbContext.SaveChangesAsync() <= 0)
+                throw new Exception($"Could not update character {character.TransactionId} gold");
+
+            character.Inventory.Items.Remove(item);
+            _dbContext.Items.Remove(item);
+
+            if (await _dbContext.SaveChangesAsync() <= 0)
+                throw new Exception($"Could not remove item {item.Id} from character inventory");
+
+            await transaction.CommitAsync();
+            return Result.Ok(_mapper.Map<InventoryViewModel>(character.Inventory));
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync();
+            return Result.Fail<InventoryViewModel>("Something unexpected happened and item could not be sold");
+        }
+    }
+
+    public async Task<Result<BuildViewModel>> EquipItem(Guid characterTransactionId, long itemId)
+    {
+        var character = await _dbContext.Characters
+                                        .Include(c => c.Build.Armor)
+                                        .Include(c => c.Build.Weapon)
+                                        .Include(c => c.Inventory.Items)
+                                        .FirstOrDefaultAsync(c => c.TransactionId == characterTransactionId);
+
+        if (character == null)
+            return Result.Fail<BuildViewModel>($"Character {characterTransactionId} not found");
+
+        var item = await _dbContext.Items.FirstOrDefaultAsync(i => i.Id == itemId);
+
+        if (item == null)
+            return Result.Fail<BuildViewModel>($"Item {itemId} not found");
+
+        var isOnBuild = character.Build.WeaponId == item.Id || character.Build.ArmorId == item.Id;
+
+        if (isOnBuild)
+            return Result.Fail<BuildViewModel>($"Item {itemId} is already equipped");
+
+        var isOnInventory = character.Inventory.Items.Any(i => i.Id == item.Id);
+
+        if (!isOnInventory)
+            return Result.Fail<BuildViewModel>($"Item {itemId} is not present in your inventory");
+
+        switch (item)
+        {
+            case Weapons weapon:
+                character.Inventory.Items.Add(character.Build.Weapon);
+                character.Build.Weapon = weapon;
+                break;
+            case Armors armor:
+                character.Inventory.Items.Add(character.Build.Armor);
+                character.Build.Armor = armor;
+                break;
+            default:
+                return Result.Fail<BuildViewModel>($"There is something wrong with item {itemId}");
+        }
+
+        character.Inventory.Items.Remove(item);
+
         var writtenEntries = await _dbContext.SaveChangesAsync();
-
         return writtenEntries <= 0
-            ? Result.Fail<InventoryViewModel>("Could not add a new reward to a character inventory.")
-            : Result.Ok(_mapper.Map<InventoryViewModel>(character.Inventory));
+            ? Result.Fail<BuildViewModel>("Could not equip item to a character build.")
+            : Result.Ok(_mapper.Map<BuildViewModel>(character.Build));
     }
 
     private IQueryable<Characters> QueryEager()

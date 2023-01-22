@@ -18,6 +18,8 @@ public class CharacterProfile : Profile
 
         CreateMap<Inventories, InventoryViewModel>();
 
+        CreateMap<Builds, BuildViewModel>();
+
         CreateMap<Characters, CharacterViewModel>()
             .ForMember(
                 destinationMember: dest => dest.SpecializationDescription,

@@ -55,10 +55,22 @@ public class CharacterController : ControllerBase
         return result.IsSuccess ? NoContent() : NotFound(result.Errors.Select(e => new { e.Message }));
     }
 
-    [HttpPost("add-reward-to-inventory")]
-    public async Task<IActionResult> AddRewardToInventory(AddRewardToCharacterViewModel body)
+    [HttpPatch("{transactionId:guid}/sell-item")]
+    public async Task<ActionResult<InventoryViewModel>> SellItem(Guid transactionId, SellItemOnInventoryViewModel body)
     {
-        var result = await _characterService.AddRewardToInventory(body);
+        var result = await _characterService.SellItem(transactionId, body.ItemId);
+
+        if (result.IsSuccess)
+            return Ok(result.Value);
+
+        var errorResponse = result.Errors.Select(e => new { e.Message });
+        return BadRequest(errorResponse);
+    }
+
+    [HttpPatch("{transactionId:guid}/equip-item")]
+    public async Task<ActionResult<BuildViewModel>> EquipItem(Guid transactionId, EquipItemViewModel body)
+    {
+        var result = await _characterService.EquipItem(transactionId, body.ItemId);
 
         if (result.IsSuccess)
             return Ok(result.Value);

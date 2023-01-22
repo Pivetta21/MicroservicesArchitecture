@@ -15,6 +15,8 @@ public abstract class ItemViewModel
 
     public int MaxQuality { get; set; }
 
+    public long Price { get; set; }
+
     public string RarityDescription { get; set; } = string.Empty;
 }
 

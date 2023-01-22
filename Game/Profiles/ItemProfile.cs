@@ -1,4 +1,5 @@
 using AutoMapper;
+using Common.DTOs.Item;
 using Game.Models;
 using Game.ViewModels;
 
@@ -8,26 +9,29 @@ public class ItemProfile : Profile
 {
     public ItemProfile()
     {
+        EntityToDto();
         EntityToViewModel();
         ViewModelToEntity();
+    }
+
+    private void EntityToDto()
+    {
+        CreateMap<Items, ItemPriceDto>();
     }
 
     private void EntityToViewModel()
     {
         CreateMap<Items, ItemViewModel>()
-            .IncludeAllDerived();
+            .ForMember(
+                destinationMember: dest => dest.RarityDescription,
+                memberOptions: opt => opt.MapFrom(src => src.Rarity.ToString())
+            );
 
         CreateMap<Armors, ArmorViewModel>()
-            .ForMember(
-                destinationMember: dest => dest.RarityDescription,
-                memberOptions: opt => opt.MapFrom(src => src.Rarity.ToString())
-            );
+            .IncludeBase<Items, ItemViewModel>();
 
         CreateMap<Weapons, WeaponViewModel>()
-            .ForMember(
-                destinationMember: dest => dest.RarityDescription,
-                memberOptions: opt => opt.MapFrom(src => src.Rarity.ToString())
-            );
+            .IncludeBase<Items, ItemViewModel>();
     }
 
     private void ViewModelToEntity()

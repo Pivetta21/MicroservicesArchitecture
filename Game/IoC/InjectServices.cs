@@ -11,6 +11,7 @@ public static class InjectServices
         services.AddScoped<IDungeonService, DungeonService>();
         services.AddScoped<IDungeonEntranceService, DungeonEntranceService>();
         services.AddScoped<IDungeonJournalService, DungeonJournalService>();
+        services.AddScoped<IItemService, ItemService>();
 
         services.AddSingleton<IProofOfWork, ProofOfWork>();
     }

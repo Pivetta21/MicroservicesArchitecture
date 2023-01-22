@@ -37,7 +37,7 @@ public static class AppDbInitializer
             {
                 Name = "Bot Mage #001",
                 TransactionId = Guid.NewGuid(),
-                UserTransactionId = Guid.NewGuid(),
+                UserTransactionId = Guid.Empty,
                 Specialization = SpecializationEnum.Mage,
                 Build = new Builds
                 {
@@ -60,7 +60,7 @@ public static class AppDbInitializer
             {
                 Name = "Bot Warrior #002",
                 TransactionId = Guid.NewGuid(),
-                UserTransactionId = Guid.NewGuid(),
+                UserTransactionId = Guid.Empty,
                 Specialization = SpecializationEnum.Warrior,
                 Build = new Builds
                 {
@@ -83,7 +83,7 @@ public static class AppDbInitializer
             {
                 Name = "Bot Priest #003",
                 TransactionId = Guid.NewGuid(),
-                UserTransactionId = Guid.NewGuid(),
+                UserTransactionId = Guid.Empty,
                 Specialization = SpecializationEnum.Priest,
                 Build = new Builds
                 {

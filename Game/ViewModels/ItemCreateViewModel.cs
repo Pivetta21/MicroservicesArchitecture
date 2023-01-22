@@ -16,6 +16,9 @@ public abstract class ItemCreateViewModel
 
     [Required]
     public int MaxQuality { get; set; }
+
+    [Required]
+    public long Price { get; set; }
 }
 
 public class ItemCreateViewModelJsonConverter : JsonConverter<ItemCreateViewModel>

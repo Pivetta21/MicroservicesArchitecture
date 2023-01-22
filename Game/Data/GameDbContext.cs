@@ -15,6 +15,8 @@ public class GameDbContext : DbContext
 
     public DbSet<DungeonEntrances> DungeonEntrances => Set<DungeonEntrances>();
 
+    public DbSet<Items> Items => Set<Items>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Items>().ToTable("items");

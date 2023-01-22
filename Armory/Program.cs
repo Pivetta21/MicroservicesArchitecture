@@ -65,6 +65,8 @@ builder.Services.AddServices();
 
 builder.Services.AddAsyncDataServices();
 
+builder.Services.AddSyncDataServices();
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())

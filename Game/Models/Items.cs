@@ -14,6 +14,8 @@ public abstract class Items
 
     public required int MaxQuality { get; set; }
 
+    public required long Price { get; set; }
+
     public ICollection<Dungeons> Dungeons { get; } = new HashSet<Dungeons>();
 
     public ICollection<DungeonJournals> DungeonJournals { get; } = new HashSet<DungeonJournals>();
