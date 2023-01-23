@@ -1,5 +1,7 @@
 using Armory.Services.Interfaces;
 using Armory.ViewModels;
+using Common.DTOs.DungeonEntrance;
+using Common.DTOs.PlayDungeon;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Armory.Controllers;
@@ -21,16 +23,38 @@ public class GameController : ControllerBase
     }
 
     [HttpPost("register-entrance")]
-    public async Task<IActionResult> RegisterEntrance(DungeonRegisterEntranceViewModel body)
+    public async Task<ActionResult<DungeonEntranceChoreographySagaDto>> RegisterEntrance(DungeonRegisterEntranceViewModel body)
     {
-        var result = await _dungeonEntranceService.RegisterEntrance(body);
-        return result.IsSuccess ? Ok(result.Value) : NotFound(result.Errors.Select(e => new { e.Message }));
+        var dungeonTransactionId = Guid.NewGuid();
+
+        var result = await _dungeonEntranceService.RegisterEntrance(body, dungeonTransactionId);
+
+        if (!result.IsSuccess)
+            return NotFound(result.Errors.Select(e => new { e.Message }));
+
+        var response = new DungeonEntranceChoreographySagaDto
+        {
+            Message = result.Value,
+            DungeonEntranceTransactionId = dungeonTransactionId,
+        };
+
+        return Ok(response);
     }
 
     [HttpPost("play-dungeon")]
-    public async Task<IActionResult> PlayDungeon(PlayDungeonViewModel body)
+    public async Task<ActionResult<PlayDungeonOrchestrationSagaDto>> PlayDungeon(PlayDungeonViewModel body)
     {
         var result = await _dungeonService.PlayDungeon(body);
-        return result.IsSuccess ? Ok(result.Value) : NotFound(result.Errors.Select(e => new { e.Message }));
+
+        if (!result.IsSuccess)
+            return NotFound(result.Errors.Select(e => new { e.Message }));
+
+        var response = new DungeonEntranceChoreographySagaDto
+        {
+            Message = result.Value,
+            DungeonEntranceTransactionId = body.DungeonEntranceTransactionId,
+        };
+
+        return Ok(response);
     }
 }

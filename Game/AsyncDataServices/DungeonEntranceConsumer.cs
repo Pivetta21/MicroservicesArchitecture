@@ -1,7 +1,6 @@
 using System.Text;
 using System.Text.Json;
 using Common.DTOs.DungeonEntrance;
-using Common.RabbitMq;
 using Common.RabbitMq.Enums;
 using Game.Services.Interfaces;
 using RabbitMQ.Client.Events;
@@ -10,6 +9,8 @@ namespace Game.AsyncDataServices;
 
 public class DungeonEntranceConsumer : RabbitMqConsumerBase, IHostedService
 {
+    private const string ConsumerName = nameof(DungeonEntranceConsumer);
+
     private const ExchangeTypeEnum ExchangeType = ExchangeTypeEnum.Direct;
     private const ExchangesEnum Exchange = ExchangesEnum.DungeonEntrance;
     private const QueuesEnum Queue = QueuesEnum.DungeonEntranceArmory;
@@ -29,7 +30,7 @@ public class DungeonEntranceConsumer : RabbitMqConsumerBase, IHostedService
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Consumer '{ConsumerName}' started", nameof(DungeonEntranceConsumer));
+        _logger.LogInformation("Consumer '{ConsumerName}' started", ConsumerName);
         return Task.CompletedTask;
     }
 
@@ -37,7 +38,7 @@ public class DungeonEntranceConsumer : RabbitMqConsumerBase, IHostedService
     {
         base.Dispose();
 
-        _logger.LogInformation("Consumer '{ConsumerName}' stopped", nameof(DungeonEntranceConsumer));
+        _logger.LogInformation("Consumer '{ConsumerName}' stopped", ConsumerName);
         return Task.CompletedTask;
     }
 
@@ -46,30 +47,40 @@ public class DungeonEntranceConsumer : RabbitMqConsumerBase, IHostedService
         if (Channel?.IsClosed ?? true)
             base.CreateChannel();
 
+        var messageCorrelationId = @event.BasicProperties.CorrelationId;
+
+        _logger.LogInformation(
+            "Message {MessageCorrelationId} is being processed by {ConsumerName}",
+            messageCorrelationId,
+            ConsumerName
+        );
+
         try
         {
             var message = Encoding.UTF8.GetString(@event.Body.ToArray());
-
-            _logger.LogInformation("Message {@Body} is being processed", message);
-
             var dungeonEntranceDto = JsonSerializer.Deserialize<DungeonEntranceArmoryDto>(message);
 
             if (dungeonEntranceDto == null)
-                throw new RabbitMqException($"Message {message} could not be parsed to its respective DTO");
+                throw new Exception("Message could not be parsed to its respective DTO");
 
             using var scope = _serviceScopeFactory.CreateScope();
             var service = scope.ServiceProvider.GetRequiredService<IDungeonEntranceService>();
 
             await service.ProcessDungeonEntrance(dungeonEntranceDto);
 
-            _logger.LogInformation("Message {@Body} was consumed successfully", message);
+            _logger.LogInformation(
+                "Message {MessageCorrelationId} was consumed successfully by {ConsumerName}",
+                messageCorrelationId,
+                ConsumerName
+            );
         }
         catch (Exception ex)
         {
             _logger.LogError(
                 ex,
-                "An error happened while consuming a message with the following correlation id {CorrelationId}",
-                @event.BasicProperties.CorrelationId
+                "An error happened while message {MessageCorrelationId} was being consumed by {ConsumerName}",
+                messageCorrelationId,
+                ConsumerName
             );
         }
         finally

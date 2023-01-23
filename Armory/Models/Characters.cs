@@ -20,7 +20,7 @@ public class Characters
 
     public int Damage { get; set; } = 5;
 
-    public long Gold { get; set; } = 20;
+    public long Gold { get; set; } = 100;
 
     public int Level { get; set; } = 1;
 

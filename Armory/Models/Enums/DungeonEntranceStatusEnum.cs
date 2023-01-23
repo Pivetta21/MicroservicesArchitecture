@@ -5,5 +5,7 @@ public enum DungeonEntranceStatusEnum
     RegistrationRequested = 1,
     RegistrationFailed = 2,
     ReadyToUse = 3,
-    Used = 4,
+    AwaitingProcessing = 4,
+    Processed = 5,
+    ProcessedWithError = 6,
 }

@@ -50,34 +50,70 @@ public class DungeonEntranceService : IDungeonEntranceService
             : Result.Ok(_mapper.Map<DungeonEntranceViewModel>(entrance));
     }
 
-    public Task ProcessDungeonEntrance(DungeonEntranceArmoryDto dto)
+    public async Task ProcessDungeonEntrance(DungeonEntranceArmoryDto dto)
     {
-        return dto.DungeonEntranceEvent switch
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+        try
         {
-            DungeonEntranceEventEnum.RegisterEntrance => ConsumeRegisterEntrance(dto),
-            DungeonEntranceEventEnum.ProcessEntrance => ConsumeProcessEntrance(dto),
-            DungeonEntranceEventEnum.ProcessEntranceError => ConsumeProcessEntranceError(dto),
-            _ => Task.CompletedTask,
-        };
+            switch (dto.DungeonEntranceEvent)
+            {
+                case DungeonEntranceEventEnum.RegisterEntrance:
+                    await ConsumeRegisterEntrance(dto);
+                    break;
+                case DungeonEntranceEventEnum.ProcessEntrance:
+                    await ConsumeProcessEntrance(dto);
+                    break;
+                case DungeonEntranceEventEnum.ProcessEntranceError:
+                    await ConsumeProcessEntranceError(dto);
+                    break;
+            }
+
+            _logger.LogInformation(
+                "Event {DungeonEntranceEvent} for dungeon entrance {DungeonEntranceTransactionId} was successfully processed",
+                dto.DungeonEntranceEvent,
+                dto.DungeonEntranceTransactionId
+            );
+
+            await transaction.CommitAsync();
+            return;
+        }
+        catch (DungeonEntranceFeeException feeEx)
+        {
+            PublishRollbackChargeFee(
+                dungeonEntranceTransactionId: dto.DungeonEntranceTransactionId,
+                errorMessage: feeEx.Message
+            );
+        }
+        catch (DungeonEntranceRollbackException rollbackEx)
+        {
+            PublishRollbackEntrance(
+                dungeonEntranceTransactionId: dto.DungeonEntranceTransactionId,
+                errorMessage: rollbackEx.Message
+            );
+        }
+        catch (RabbitMqException rex)
+        {
+            _logger.LogCritical(
+                "Error when processing event {DungeonEntranceEvent} for dungeon entrance {DungeonEntranceTransactionId}. Message: {Message}",
+                dto.DungeonEntranceEvent,
+                dto.DungeonEntranceTransactionId,
+                rex.Message
+            );
+        }
+
+        await transaction.RollbackAsync();
     }
 
     private async Task ConsumeRegisterEntrance(DungeonEntranceArmoryDto dto)
     {
-        var dungeon = await _dbContext
-                            .Dungeons
-                            .FirstOrDefaultAsync(d => d.TransactionId == dto.DungeonTransactionId);
+        if (dto.CharacterTransactionId == null)
+            throw new DungeonEntranceRollbackException($"Field {nameof(dto.CharacterTransactionId)} should not be null");
 
-        if (dungeon == null || dto.CharacterTransactionId == null)
-        {
-            PublishRollbackEntrance(
-                dungeonEntranceTransactionId: dto.DungeonEntranceTransactionId,
-                errorMessage: dto.CharacterTransactionId == null
-                    ? $"Field {nameof(dto.CharacterTransactionId)} should not be null"
-                    : $"Dungeon with uuid {dto.DungeonTransactionId} not found"
-            );
+        var dungeon = await _dbContext.Dungeons.FirstOrDefaultAsync(d => d.TransactionId == dto.DungeonTransactionId);
 
-            return;
-        }
+        if (dungeon == null)
+            throw new DungeonEntranceRollbackException($"Dungeon with uuid {dto.DungeonTransactionId} not found");
 
         var dungeonEntrance = new DungeonEntrances
         {
@@ -89,17 +125,8 @@ public class DungeonEntranceService : IDungeonEntranceService
 
         _dbContext.DungeonEntrances.Add(dungeonEntrance);
 
-        var writtenEntries = await _dbContext.SaveChangesAsync();
-
-        if (writtenEntries <= 0)
-        {
-            PublishRollbackEntrance(
-                dungeonEntranceTransactionId: dto.DungeonEntranceTransactionId,
-                errorMessage: $"Dungeon entrance {dto.DungeonTransactionId} could not be created"
-            );
-
-            return;
-        }
+        if (await _dbContext.SaveChangesAsync() <= 0)
+            throw new DungeonEntranceRollbackException($"Dungeon entrance {dto.DungeonTransactionId} could not be created");
 
         _logger.LogInformation(
             "Dungeon entrance {DungeonEntranceTransactionId} persisted successfully, sending {DungeonEntranceEvent} event to Armory queue",
@@ -122,64 +149,37 @@ public class DungeonEntranceService : IDungeonEntranceService
         var dungeonEntrance = await GetDungeonEntranceByTransactionId(dto.DungeonEntranceTransactionId);
 
         if (dungeonEntrance == null)
-        {
-            PublishRollbackChargeFee(
-                dungeonEntranceTransactionId: dto.DungeonEntranceTransactionId,
-                errorMessage: $"Dungeon with uuid {dto.DungeonTransactionId} not found"
-            );
-
-            return;
-        }
+            throw new DungeonEntranceFeeException($"Dungeon with uuid {dto.DungeonTransactionId} not found");
 
         dungeonEntrance.Processed = true;
 
         _dbContext.DungeonEntrances.Update(dungeonEntrance);
-        var writtenEntries = await _dbContext.SaveChangesAsync();
 
-        if (writtenEntries <= 0)
-        {
-            PublishRollbackChargeFee(
-                dungeonEntranceTransactionId: dungeonEntrance.TransactionId,
-                errorMessage: $"Dungeon entrance with uuid {dto.DungeonTransactionId} could not be marked as processed"
-            );
-        }
-        else
-        {
-            _logger.LogInformation(
-                "Dungeon entrance {DungeonEntranceTransactionId} processed successfully",
-                dungeonEntrance.TransactionId
-            );
-        }
+        if (await _dbContext.SaveChangesAsync() <= 0)
+            throw new DungeonEntranceFeeException($"Dungeon entrance {dto.DungeonTransactionId} could not be processed");
+
+        _logger.LogInformation(
+            "Dungeon entrance {DungeonEntranceTransactionId} processed successfully",
+            dungeonEntrance.TransactionId
+        );
     }
 
     private async Task ConsumeProcessEntranceError(DungeonEntranceArmoryDto dto)
     {
-        var dungeonEntrance = await GetDungeonEntranceByTransactionId(dto.DungeonEntranceTransactionId);
+        var entranceGuid = dto.DungeonEntranceTransactionId;
+        var dungeonEntrance = await GetDungeonEntranceByTransactionId(entranceGuid);
 
         if (dungeonEntrance == null)
-        {
-            PublishRollbackEntrance(
-                dungeonEntranceTransactionId: dto.DungeonEntranceTransactionId,
-                errorMessage: $"Dungeon entrance not found {dto.DungeonEntranceTransactionId}"
-            );
-
-            return;
-        }
+            throw new DungeonEntranceRollbackException($"Dungeon entrance not found {entranceGuid}");
 
         _dbContext.DungeonEntrances.Remove(dungeonEntrance);
-        var writtenEntries = await _dbContext.SaveChangesAsync();
 
-        if (writtenEntries <= 0)
-        {
-            _logger.LogCritical(
-                "Dungeon entrance {DungeonEntranceTransactionId} could not be removed",
-                dungeonEntrance.TransactionId
-            );
-        }
+        if (await _dbContext.SaveChangesAsync() <= 0)
+            throw new RabbitMqException($"Dungeon entrance {dungeonEntrance.TransactionId} could not be removed");
 
         PublishRollbackEntrance(
-            dungeonEntranceTransactionId: dto.DungeonEntranceTransactionId,
-            errorMessage: $"Dungeon entrance {dungeonEntrance.TransactionId} with error was successfully removed"
+            dungeonEntranceTransactionId: dungeonEntrance.TransactionId,
+            errorMessage: $"Dungeon entrance {dungeonEntrance.TransactionId} was successfully removed"
         );
     }
 

@@ -1,25 +1,25 @@
-using Armory.Services.Interfaces;
-using Common.DTOs.DungeonEntrance;
 using Common.RabbitMq.Enums;
 using RabbitMQ.Client.Events;
 using System.Text.Json;
 using System.Text;
+using Armory.Services.Interfaces;
+using Common.DTOs.PlayDungeon;
 
 namespace Armory.AsyncDataServices;
 
-public class DungeonEntranceConsumer : RabbitMqConsumerBase, IHostedService
+public class PlayDungeonReplyConsumer : RabbitMqConsumerBase, IHostedService
 {
-    private const string ConsumerName = nameof(DungeonEntranceConsumer);
+    private const string ConsumerName = nameof(PlayDungeonReplyConsumer);
 
     private const ExchangeTypeEnum ExchangeType = ExchangeTypeEnum.Direct;
-    private const ExchangesEnum Exchange = ExchangesEnum.DungeonEntrance;
-    private const QueuesEnum Queue = QueuesEnum.DungeonEntranceGame;
+    private const ExchangesEnum Exchange = ExchangesEnum.PlayDungeon;
+    private const QueuesEnum Queue = QueuesEnum.PlayDungeonReply;
 
-    private readonly ILogger<DungeonEntranceConsumer> _logger;
+    private readonly ILogger<PlayDungeonReplyConsumer> _logger;
     private readonly IServiceScopeFactory _serviceScopeFactory;
 
-    public DungeonEntranceConsumer(
-        ILogger<DungeonEntranceConsumer> logger,
+    public PlayDungeonReplyConsumer(
+        ILogger<PlayDungeonReplyConsumer> logger,
         RabbitMqConnectionManager connectionManager,
         IServiceScopeFactory serviceScopeFactory
     ) : base(connectionManager.ConsumerConnection, ExchangeType, Exchange, Queue)
@@ -58,15 +58,15 @@ public class DungeonEntranceConsumer : RabbitMqConsumerBase, IHostedService
         try
         {
             var message = Encoding.UTF8.GetString(@event.Body.ToArray());
-            var dungeonEntranceDto = JsonSerializer.Deserialize<DungeonEntranceGameDto>(message);
+            var playDungeonReplyDto = JsonSerializer.Deserialize<PlayDungeonReplyDto>(message);
 
-            if (dungeonEntranceDto == null)
+            if (playDungeonReplyDto == null)
                 throw new Exception("Message could not be parsed to its respective DTO");
 
             using var scope = _serviceScopeFactory.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<IDungeonEntranceService>();
+            var service = scope.ServiceProvider.GetRequiredService<IDungeonService>();
 
-            await service.ProcessDungeonEntrance(dungeonEntranceDto);
+            await service.ProcessPlayDungeonReply(playDungeonReplyDto);
 
             _logger.LogInformation(
                 "Message {MessageCorrelationId} was consumed successfully by {ConsumerName}",

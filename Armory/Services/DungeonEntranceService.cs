@@ -27,7 +27,7 @@ public class DungeonEntranceService : IDungeonEntranceService
         _dungeonEntranceProducer = dungeonEntranceProducer;
     }
 
-    public async Task<Result<string>> RegisterEntrance(DungeonRegisterEntranceViewModel body)
+    public async Task<Result<string>> RegisterEntrance(DungeonRegisterEntranceViewModel body, Guid dungeonTransactionId)
     {
         var character = await _dbContext
                               .Characters
@@ -40,7 +40,7 @@ public class DungeonEntranceService : IDungeonEntranceService
         {
             Character = character,
             DungeonTransactionId = body.DungeonTransactionId,
-            TransactionId = Guid.NewGuid(),
+            TransactionId = dungeonTransactionId,
             Status = DungeonEntranceStatusEnum.RegistrationRequested,
             Deleted = false,
         };
@@ -70,59 +70,77 @@ public class DungeonEntranceService : IDungeonEntranceService
         return Result.Ok("Your dungeon entrance request was sent successfully and will be processed soon");
     }
 
-    public Task ProcessDungeonEntrance(DungeonEntranceGameDto dto)
+    public async Task ProcessDungeonEntrance(DungeonEntranceGameDto dto)
     {
-        return dto.DungeonEntranceEvent switch
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+        try
         {
-            DungeonEntranceEventEnum.ChargeFee => ConsumeChargeFee(dto),
-            DungeonEntranceEventEnum.RollbackChargeFee => ConsumeRollbackChargeFee(dto),
-            DungeonEntranceEventEnum.RollbackEntrance => ConsumeRollbackEntrance(dto.DungeonEntranceTransactionId),
-            _ => Task.CompletedTask,
-        };
+            switch (dto.DungeonEntranceEvent)
+            {
+                case DungeonEntranceEventEnum.ChargeFee:
+                    await ConsumeChargeFee(dto);
+                    break;
+                case DungeonEntranceEventEnum.RollbackChargeFee:
+                    await ConsumeRollbackChargeFee(dto);
+                    break;
+                case DungeonEntranceEventEnum.RollbackEntrance:
+                    await ConsumeRollbackEntrance(dto.DungeonEntranceTransactionId);
+                    break;
+            }
+
+            _logger.LogInformation(
+                "Event {DungeonEntranceEvent} for dungeon entrance {DungeonEntranceTransactionId} was successfully processed",
+                dto.DungeonEntranceEvent,
+                dto.DungeonEntranceTransactionId
+            );
+
+            await transaction.CommitAsync();
+            return;
+        }
+        catch (DungeonEntranceErrorException errorEx)
+        {
+            PublishProcessEntranceError(
+                dungeonEntranceTransactionId: dto.DungeonEntranceTransactionId,
+                errorMessage: errorEx.Message
+            );
+        }
+        catch (RabbitMqException rex)
+        {
+            _logger.LogCritical(
+                "Error when processing event {DungeonEntranceEvent} for dungeon entrance {DungeonEntranceTransactionId}. Message: {Message}",
+                dto.DungeonEntranceEvent,
+                dto.DungeonEntranceTransactionId,
+                rex.Message
+            );
+        }
+
+        await transaction.RollbackAsync();
     }
 
     private async Task ConsumeChargeFee(DungeonEntranceGameDto dto)
     {
-        var dungeonEntrance = await GetDungeonEntranceByTransactionId(dto.DungeonEntranceTransactionId);
+        if (dto.DungeonCost == null)
+            throw new DungeonEntranceErrorException($"Field {nameof(dto.DungeonCost)} should not be null");
 
-        if (dungeonEntrance == null || dto.DungeonCost == null)
-        {
-            PublishProcessEntranceError(
-                dungeonEntranceTransactionId: dto.DungeonEntranceTransactionId,
-                errorMessage: dto.DungeonCost == null
-                    ? $"Field {nameof(dto.DungeonCost)} should not be null"
-                    : $"Dungeon entrance with uuid {dto.DungeonEntranceTransactionId} not found"
-            );
+        var entranceGuid = dto.DungeonEntranceTransactionId;
 
-            return;
-        }
+        var dungeonEntrance = await GetDungeonEntranceByTransactionId(entranceGuid);
+
+        if (dungeonEntrance == null)
+            throw new DungeonEntranceErrorException($"Dungeon entrance {entranceGuid} not found");
 
         if (dungeonEntrance.Character.Gold - dto.DungeonCost < 0)
-        {
-            PublishProcessEntranceError(
-                dungeonEntranceTransactionId: dungeonEntrance.TransactionId,
-                errorMessage: $"Character {dungeonEntrance.Character.TransactionId} does not have enough gold"
-            );
-
-            return;
-        }
+            throw new DungeonEntranceErrorException($"Not enough gold for dungeon entrance {entranceGuid}");
 
         dungeonEntrance.Character.Gold -= dto.DungeonCost.Value;
         dungeonEntrance.PayedFee = dto.DungeonCost.Value;
         dungeonEntrance.Status = DungeonEntranceStatusEnum.ReadyToUse;
 
         _dbContext.DungeonEntrances.Update(dungeonEntrance);
-        var writtenEntries = await _dbContext.SaveChangesAsync();
 
-        if (writtenEntries <= 0)
-        {
-            PublishProcessEntranceError(
-                dungeonEntranceTransactionId: dungeonEntrance.TransactionId,
-                errorMessage: $"Dungeon entrance {dungeonEntrance.TransactionId} could not be updated"
-            );
-
-            return;
-        }
+        if (await _dbContext.SaveChangesAsync() <= 0)
+            throw new DungeonEntranceErrorException($"Dungeon entrance {entranceGuid} could not be updated");
 
         _logger.LogInformation(
             "Fee charged successfully for dungeon entrance {DungeonEntranceTransactionId}, sending {DungeonEntranceEvent} event to Game queue",
@@ -143,41 +161,25 @@ public class DungeonEntranceService : IDungeonEntranceService
 
     private async Task ConsumeRollbackChargeFee(DungeonEntranceGameDto dto)
     {
-        var dungeonEntrance = await GetDungeonEntranceByTransactionId(dto.DungeonEntranceTransactionId);
+        var entranceGuid = dto.DungeonEntranceTransactionId;
+        var entrance = await GetDungeonEntranceByTransactionId(entranceGuid);
 
-        if (dungeonEntrance?.PayedFee == null)
-        {
-            PublishProcessEntranceError(
-                dungeonEntranceTransactionId: dto.DungeonEntranceTransactionId,
-                errorMessage: dungeonEntrance == null
-                    ? $"Dungeon entrance not found {dto.DungeonEntranceTransactionId}"
-                    : $"Field {nameof(dungeonEntrance.PayedFee)} should not be null"
-            );
+        if (entrance == null)
+            throw new DungeonEntranceErrorException($"Dungeon entrance {entranceGuid} not found");
 
-            return;
-        }
+        if (entrance.PayedFee == null)
+            throw new DungeonEntranceErrorException($"Dungeon entrance {entranceGuid} must have a payed fee");
 
-        // Ideally should have a table to track changes that happened to an entity,
-        // and then retrieve the PayedFee from there
-        dungeonEntrance.Character.Gold += dungeonEntrance.PayedFee.Value;
+        entrance.Character.Gold += entrance.PayedFee.Value;
+        _dbContext.Characters.Update(entrance.Character);
 
-        _dbContext.Characters.Update(dungeonEntrance.Character);
-        var writtenEntries = await _dbContext.SaveChangesAsync();
+        if (await _dbContext.SaveChangesAsync() <= 0)
+            throw new DungeonEntranceErrorException($"Character {entrance.Character.TransactionId} couldn't be refunded");
 
-        if (writtenEntries <= 0)
-        {
-            PublishProcessEntranceError(
-                dungeonEntranceTransactionId: dungeonEntrance.TransactionId,
-                errorMessage: $"Character with uuid {dungeonEntrance.Character.TransactionId} could not be refunded"
-            );
-        }
-        else
-        {
-            _logger.LogInformation(
-                "Character with uuid {CharacterTransactionId} was refunded successfully",
-                dungeonEntrance.Character.TransactionId
-            );
-        }
+        _logger.LogInformation(
+            "Character with uuid {CharacterTransactionId} was refunded successfully",
+            entrance.Character.TransactionId
+        );
     }
 
     private async Task ConsumeRollbackEntrance(Guid dungeonEntranceTransactionId)
@@ -191,17 +193,9 @@ public class DungeonEntranceService : IDungeonEntranceService
         dungeonEntrance.Deleted = true;
 
         _dbContext.DungeonEntrances.Update(dungeonEntrance);
-        var writtenEntries = await _dbContext.SaveChangesAsync();
 
-        if (writtenEntries <= 0)
-        {
-            _logger.LogCritical(
-                "Dungeon entrance {DungeonEntranceTransactionId} could not be deleted",
-                dungeonEntranceTransactionId
-            );
-
-            return;
-        }
+        if (await _dbContext.SaveChangesAsync() <= 0)
+            throw new RabbitMqException($"Dungeon entrance {dungeonEntranceTransactionId} could not be deleted");
 
         _logger.LogInformation(
             "Dungeon entrance {DungeonEntranceTransactionId} was successfully deleted",

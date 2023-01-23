@@ -1,4 +1,3 @@
-using Common.RabbitMq;
 using Game.Data;
 using Game.IoC;
 using Microsoft.EntityFrameworkCore;

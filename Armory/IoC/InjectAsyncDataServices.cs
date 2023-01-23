@@ -8,5 +8,12 @@ public static class InjectAsyncDataServices
     {
         services.AddSingleton<DungeonEntranceProducer>();
         services.AddHostedService<DungeonEntranceConsumer>();
+
+        services.AddSingleton<PlayDungeonGameRequestProducer>();
+        services.AddHostedService<PlayDungeonReplyConsumer>();
+
+        services.AddSingleton<PlayDungeonReplyProducer>();
+
+        services.AddSingleton<PlayDungeonArmoryRequestProducer>();
     }
 }

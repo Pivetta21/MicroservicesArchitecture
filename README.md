@@ -31,7 +31,7 @@ kubectl create secret generic armory-pgsql \
 
 ## Game Service
 
-Possui endpoint para simular partidas e, consequentemente, gerar pontuações/itens.
+Possui endpoints para simular partidas e, consequentemente, gerar pontuações/itens.
 
 ### Database - PostgreSQL
 
@@ -54,15 +54,6 @@ kubectl create secret generic game-pgsql \
 --from-literal=POSTGRES_USER="pivetta" \
 --from-literal=POSTGRES_PASSWORD="20002102"
 ```
-
-## Leaderboard Service
-
-Consume eventos de conclusão de partidas e mantém um ranking que pode ser consultado.
-
-## Auction Service
-
-Permite jogadores vender itens que podem estar em três estados: na fila, listado, em disputa, cancelado, vendido e
-arrematado.
 
 ## Identity Service
 

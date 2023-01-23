@@ -6,7 +6,7 @@ namespace Armory.Services.Interfaces;
 
 public interface IDungeonEntranceService
 {
-    Task<Result<string>> RegisterEntrance(DungeonRegisterEntranceViewModel body);
+    Task<Result<string>> RegisterEntrance(DungeonRegisterEntranceViewModel body, Guid dungeonTransactionId);
 
     Task ProcessDungeonEntrance(DungeonEntranceGameDto dto);
 }

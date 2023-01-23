@@ -1,6 +1,5 @@
 using Armory.Data;
 using Armory.IoC;
-using Common.RabbitMq;
 using Microsoft.EntityFrameworkCore;
 using RabbitMQ.Client;
 using Serilog;

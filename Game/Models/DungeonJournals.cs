@@ -15,6 +15,6 @@ public class DungeonJournals
     public long DungeonId { get; set; }
     public required Dungeons Dungeon { get; set; }
 
-    public long RewardId { get; set; }
-    public required Items Reward { get; set; }
+    public long? RewardId { get; set; }
+    public required Items? Reward { get; set; }
 }
