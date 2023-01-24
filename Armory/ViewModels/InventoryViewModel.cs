@@ -2,7 +2,9 @@ namespace Armory.ViewModels;
 
 public class InventoryViewModel
 {
-    public int Size { get; set; }
+    public string Label { get; set; } = null!;
+
+    public DateTime CreatedAt { get; set; }
 
     public IEnumerable<ItemViewModel> Items { get; } = new List<ItemViewModel>();
 }

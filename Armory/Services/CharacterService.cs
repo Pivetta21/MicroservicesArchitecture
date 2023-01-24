@@ -68,7 +68,11 @@ public class CharacterService : ICharacterService
                     Power = 2,
                 },
             },
-            Inventory = new Inventories(),
+            Inventory = new Inventories
+            {
+                Label = $"{createViewModel.Name}'s Inventory",
+                CreatedAt = DateTime.UtcNow,
+            },
         };
 
         _dbContext.Characters.Add(entity);

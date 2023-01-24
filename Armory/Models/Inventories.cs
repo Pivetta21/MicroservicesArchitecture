@@ -4,7 +4,9 @@ public class Inventories
 {
     public long Id { get; set; }
 
-    public int Size { get; set; } = 20;
+    public required string Label { get; set; }
+
+    public required DateTime CreatedAt { get; set; }
 
     public Characters Character { get; set; } = null!;
 

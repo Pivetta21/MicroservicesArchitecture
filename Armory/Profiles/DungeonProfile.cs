@@ -15,7 +15,7 @@ public class DungeonProfile : Profile
     {
         CreateMap<DungeonEntrances, DungeonEntranceViewModel>()
             .ForMember(
-                destinationMember: dest => dest.Status,
+                destinationMember: dest => dest.StatusDescription,
                 memberOptions: opt => opt.MapFrom(src => src.Status.ToString())
             );
     }

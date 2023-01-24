@@ -5,4 +5,6 @@ public class PlayDungeonOrchestrationSagaDto
     public string Message { get; set; } = null!;
 
     public Guid DungeonEntranceTransactionId { get; set; }
+
+    public string DungeonEntranceStatus { get; set; } = null!;
 }

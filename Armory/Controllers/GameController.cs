@@ -49,10 +49,11 @@ public class GameController : ControllerBase
         if (!result.IsSuccess)
             return NotFound(result.Errors.Select(e => new { e.Message }));
 
-        var response = new DungeonEntranceChoreographySagaDto
+        var response = new PlayDungeonOrchestrationSagaDto
         {
-            Message = result.Value,
-            DungeonEntranceTransactionId = body.DungeonEntranceTransactionId,
+            Message = "Your play dungeon request was sent successfully and will be processed soon",
+            DungeonEntranceTransactionId = result.Value.DungeonTransactionId,
+            DungeonEntranceStatus = result.Value.StatusDescription,
         };
 
         return Ok(response);

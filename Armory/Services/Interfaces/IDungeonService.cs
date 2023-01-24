@@ -6,7 +6,7 @@ namespace Armory.Services.Interfaces;
 
 public interface IDungeonService
 {
-    Task<Result<string>> PlayDungeon(PlayDungeonViewModel playDungeonViewModel);
+    Task<Result<DungeonEntranceViewModel>> PlayDungeon(PlayDungeonViewModel playDungeonViewModel);
 
     Task ProcessPlayDungeonReply(PlayDungeonReplyDto playDungeonReplyDto);
 }
