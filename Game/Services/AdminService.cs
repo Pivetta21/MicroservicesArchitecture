@@ -22,16 +22,6 @@ public class AdminService : IAdminService
         _dbContext = dbContext;
     }
 
-    public async Task<IEnumerable<DungeonViewModel>> GetAll()
-    {
-        var dungeons = await _dbContext.Dungeons
-                                       .Include(d => d.Rewards)
-                                       .OrderByDescending(d => d.Id)
-                                       .ToListAsync();
-
-        return _mapper.Map<IEnumerable<DungeonViewModel>>(dungeons);
-    }
-
     public async Task<Result<DungeonViewModel>> CreateDungeon(DungeonCreateViewModel createViewModel)
     {
         var entity = _mapper.Map<Dungeons>(createViewModel);

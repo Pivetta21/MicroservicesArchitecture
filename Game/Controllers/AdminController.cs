@@ -15,13 +15,6 @@ public class AdminController : ControllerBase
         _adminService = adminService;
     }
 
-    [HttpGet("dungeon")]
-    public async Task<ActionResult<IEnumerable<DungeonViewModel>>> Get()
-    {
-        var response = await _adminService.GetAll();
-        return Ok(response);
-    }
-
     [HttpPost("dungeon")]
     public async Task<IActionResult> CreateDungeon(DungeonCreateViewModel body)
     {
