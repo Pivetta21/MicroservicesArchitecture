@@ -9,7 +9,6 @@ public static class InjectServices
     {
         services.AddScoped<ICharacterService, CharacterService>();
         services.AddScoped<IDungeonEntranceService, DungeonEntranceService>();
-        services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<IDungeonService, DungeonService>();
     }
 }
