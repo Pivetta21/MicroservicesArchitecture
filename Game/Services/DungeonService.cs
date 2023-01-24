@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AutoMapper;
 using Common.DTOs.Item;
 using Common.DTOs.PlayDungeon;
@@ -98,19 +99,35 @@ public class DungeonService : IDungeonService
         if (entrance == null)
             throw new PlayDungeonFinishException($"Dungeon entrance {dungeonEntranceTransactionId} not found");
 
-        var dungeonResult = await _proofOfWork.FindHash(entrance.Dungeon.Difficulty);
+        var stopwatch = new Stopwatch();
 
-        var reward = dungeonResult.Success
+        stopwatch.Start();
+
+        var hashFound = await _proofOfWork.FindHash(entrance.Dungeon.Difficulty);
+
+        stopwatch.Stop();
+
+        var reward = hashFound
             ? entrance.Dungeon.Rewards.MinBy(_ => Generator.Next(int.MaxValue))
-            : null;
+            : default;
+
+        var earnedExperience = hashFound
+            ? Generator.Next(entrance.Dungeon.MinExperience, entrance.Dungeon.MaxExperience)
+            : default(int?);
+
+        var earnedGold = hashFound
+            ? Generator.Next(entrance.Dungeon.MinGold, entrance.Dungeon.MaxGold)
+            : default(int?);
 
         var dungeonJournal = new DungeonJournals
         {
-            WasSuccessful = dungeonResult.Success,
-            ElapsedMilliseconds = dungeonResult.Time,
+            WasSuccessful = hashFound,
+            ElapsedMilliseconds = stopwatch.ElapsedMilliseconds,
             CharacterTransactionId = entrance.TransactionId,
             DungeonEntranceTransactionId = entrance.TransactionId,
             Dungeon = entrance.Dungeon,
+            EarnedGold = earnedGold,
+            EarnedExperience = earnedExperience,
             Reward = reward,
         };
 
@@ -132,7 +149,7 @@ public class DungeonService : IDungeonService
                 TransactionId = armor.TransactionId,
                 Name = armor.Name,
                 Rarity = (int)armor.Rarity,
-                Price = armor.Price
+                Price = armor.Price,
             },
             Weapons weapon => new ItemRewardDto
             {
@@ -156,7 +173,9 @@ public class DungeonService : IDungeonService
             {
                 PlayDungeonEvent = PlayDungeonEventEnum.DungeonFinished,
                 DungeonEntranceTransactionId = entrance.TransactionId,
-                ItemReward = itemRewardDto,
+                EarnedItem = itemRewardDto,
+                EarnedGold = earnedGold,
+                EarnedExperience = earnedExperience,
             }
         );
     }

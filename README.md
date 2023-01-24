@@ -54,7 +54,3 @@ kubectl create secret generic game-pgsql \
 --from-literal=POSTGRES_USER="pivetta" \
 --from-literal=POSTGRES_PASSWORD="20002102"
 ```
-
-## Identity Service
-
-Possui informações de cadastro de usuário, permissões, e etc.

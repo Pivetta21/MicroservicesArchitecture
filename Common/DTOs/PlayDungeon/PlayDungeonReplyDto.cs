@@ -8,5 +8,9 @@ public class PlayDungeonReplyDto
 
     public required Guid DungeonEntranceTransactionId { get; set; }
 
-    public ItemRewardDto? ItemReward { get; set; }
+    public ItemRewardDto? EarnedItem { get; set; }
+
+    public int? EarnedExperience { get; set; }
+
+    public int? EarnedGold { get; set; }
 }

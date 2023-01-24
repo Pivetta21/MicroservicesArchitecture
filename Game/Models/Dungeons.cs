@@ -14,13 +14,13 @@ public class Dungeons
 
     public required long Cost { get; set; }
 
-    public required long MinExperience { get; set; }
+    public required int MinExperience { get; set; }
 
-    public required long MaxExperience { get; set; }
+    public required int MaxExperience { get; set; }
 
-    public required long MinGold { get; set; }
+    public required int MinGold { get; set; }
 
-    public required long MaxGold { get; set; }
+    public required int MaxGold { get; set; }
 
     public required ICollection<Items> Rewards { get; set; } = new HashSet<Items>();
 }

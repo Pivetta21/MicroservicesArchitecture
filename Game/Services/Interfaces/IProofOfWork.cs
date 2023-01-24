@@ -2,5 +2,5 @@ namespace Game.Services.Interfaces;
 
 public interface IProofOfWork
 {
-    Task<ProofOfWorkResult> FindHash(int difficulty);
+    ValueTask<bool> FindHash(int difficulty);
 }

@@ -117,7 +117,7 @@ public class DungeonService : IDungeonService
         if (entrance == null)
             throw new PlayDungeonFinishException($"Dungeon entrance {entranceGuid} not found");
 
-        if (dto.ItemReward == null)
+        if (dto.EarnedItem == null || dto.EarnedGold == null || dto.EarnedExperience == null)
         {
             entrance.Status = DungeonEntranceStatusEnum.Processed;
             _dbContext.DungeonEntrances.Update(entrance);
@@ -133,21 +133,21 @@ public class DungeonService : IDungeonService
             return;
         }
 
-        var reward = dto.ItemReward switch
+        var reward = dto.EarnedItem switch
         {
             { Power: > 0 } => new Weapons
             {
-                Name = dto.ItemReward.Name,
-                Power = dto.ItemReward.Power.Value,
-                Rarity = (RarityEnum)dto.ItemReward.Rarity,
-                TransactionId = dto.ItemReward.TransactionId,
+                Name = dto.EarnedItem.Name,
+                Power = dto.EarnedItem.Power.Value,
+                Rarity = (RarityEnum)dto.EarnedItem.Rarity,
+                TransactionId = dto.EarnedItem.TransactionId,
             },
             { Resistance: > 0 } => new Armors
             {
-                Name = dto.ItemReward.Name,
-                Resistance = dto.ItemReward.Resistance.Value,
-                Rarity = (RarityEnum)dto.ItemReward.Rarity,
-                TransactionId = dto.ItemReward.TransactionId,
+                Name = dto.EarnedItem.Name,
+                Resistance = dto.EarnedItem.Resistance.Value,
+                Rarity = (RarityEnum)dto.EarnedItem.Rarity,
+                TransactionId = dto.EarnedItem.TransactionId,
             },
             _ => default(Items?),
         };
@@ -160,6 +160,32 @@ public class DungeonService : IDungeonService
 
         if (await _dbContext.SaveChangesAsync() <= 0)
             throw new PlayDungeonFinishException($"Could not add item {reward.Id} to character inventory");
+
+        entrance.Character.Gold += dto.EarnedGold.Value;
+        _dbContext.DungeonEntrances.Update(entrance);
+
+        if (await _dbContext.SaveChangesAsync() <= 0)
+            throw new PlayDungeonFinishException($"Could not add {dto.EarnedGold} gold to character");
+
+        entrance.Character.Experience += dto.EarnedExperience.Value;
+        entrance.Character.Level = entrance.Character.Experience switch
+        {
+            >= 0 and < 10 => 1,
+            >= 10 and < 50 => 2,
+            >= 50 and < 150 => 3,
+            >= 150 and < 250 => 4,
+            >= 250 and < 750 => 5,
+            >= 750 and < 1750 => 6,
+            >= 1750 and < 3250 => 7,
+            >= 3250 and < 6000 => 8,
+            >= 6000 and < 12000 => 9,
+            >= 12000 => 10,
+            _ => 1,
+        };
+        _dbContext.DungeonEntrances.Update(entrance);
+
+        if (await _dbContext.SaveChangesAsync() <= 0)
+            throw new PlayDungeonFinishException($"Could not add {dto.EarnedExperience} experience to character");
 
         entrance.Status = DungeonEntranceStatusEnum.Processed;
         _dbContext.DungeonEntrances.Update(entrance);

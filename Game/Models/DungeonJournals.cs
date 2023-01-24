@@ -12,6 +12,10 @@ public class DungeonJournals
 
     public required Guid DungeonEntranceTransactionId { get; set; }
 
+    public int? EarnedExperience { get; set; }
+
+    public int? EarnedGold { get; set; }
+
     public long DungeonId { get; set; }
     public required Dungeons Dungeon { get; set; }
 
