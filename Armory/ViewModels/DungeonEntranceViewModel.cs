@@ -6,9 +6,9 @@ public class DungeonEntranceViewModel
 {
     public long Id { get; set; }
 
-    public Guid DungeonTransactionId { get; set; }
+    public Guid TransactionId { get; set; }
 
-    public long? Fee { get; set; }
+    public Guid DungeonTransactionId { get; set; }
 
     public DungeonEntranceStatusEnum Status { get; set; }
 

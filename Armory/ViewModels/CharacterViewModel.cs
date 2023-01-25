@@ -4,6 +4,8 @@ namespace Armory.ViewModels;
 
 public class CharacterViewModel
 {
+    public long Id { get; set; }
+
     public Guid TransactionId { get; set; }
 
     public string Name { get; set; } = string.Empty;
@@ -12,7 +14,7 @@ public class CharacterViewModel
 
     public long Gold { get; set; }
 
-    public bool IsPLaying { get; set; }
+    public double Experience { get; set; }
 
     public SpecializationEnum Specialization { get; set; }
 

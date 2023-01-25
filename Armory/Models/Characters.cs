@@ -26,8 +26,6 @@ public class Characters
 
     public double Experience { get; set; }
 
-    public bool IsPlaying { get; set; }
-
     public long BuildId { get; set; }
     public required Builds Build { get; set; }
 

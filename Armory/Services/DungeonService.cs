@@ -227,7 +227,7 @@ public class DungeonService : IDungeonService
     private void PublishDungeonErrorToFinish(Guid dungeonEntranceTransactionId, string errorMessage)
     {
         _logger.LogInformation(
-            "{}, sending {PlayDungeonEventEnum} event to armory reply queue",
+            "{}, sending {PlayDungeonEvent} event to armory reply queue",
             errorMessage,
             PlayDungeonEventEnum.DungeonErrorToFinish
         );

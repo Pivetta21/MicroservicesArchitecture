@@ -163,7 +163,7 @@ public class DungeonService : IDungeonService
         };
 
         _logger.LogInformation(
-            "Dungeon entrance {DungeonEntranceTransactionId} consumed successfully, sending {DungeonEntranceEvent} event to armory reply queue",
+            "Dungeon entrance {DungeonEntranceTransactionId} consumed successfully, sending {PlayDungeonEvent} event to armory reply queue",
             entrance.TransactionId,
             PlayDungeonEventEnum.DungeonFinished
         );
@@ -183,7 +183,7 @@ public class DungeonService : IDungeonService
     private void PublishDungeonErrorToFinish(Guid dungeonEntranceTransactionId, string errorMessage)
     {
         _logger.LogInformation(
-            "{}, sending {PlayDungeonEventEnum} event to armory reply queue",
+            "{}, sending {PlayDungeonEvent} event to armory reply queue",
             errorMessage,
             PlayDungeonEventEnum.DungeonErrorToFinish
         );

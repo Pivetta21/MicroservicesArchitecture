@@ -4,21 +4,42 @@ using Microsoft.EntityFrameworkCore;
 using RabbitMQ.Client;
 using Serilog;
 using Serilog.Events;
+using Serilog.Sinks.Elasticsearch;
+
+var builder = WebApplication.CreateBuilder(args);
+
+const string serviceName = "Armory";
+
+Console.WriteLine("\n====================================================================");
+Console.WriteLine($"App: {serviceName} #{Guid.NewGuid()}");
+Console.WriteLine($"Name: {AppDomain.CurrentDomain.FriendlyName}");
+Console.WriteLine($"Host: {Environment.MachineName}");
+Console.WriteLine("====================================================================\n");
 
 Log.Logger = new LoggerConfiguration()
              .MinimumLevel.Information()
              .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
              .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)
-             .MinimumLevel.Override("Game", LogEventLevel.Information)
+             .MinimumLevel.Override("Armory", LogEventLevel.Information)
              .WriteTo.Console()
+             .WriteTo.Elasticsearch(
+                 options: new ElasticsearchSinkOptions(node: new Uri(builder.Configuration["Elasticsearch:Url"] ?? ""))
+                 {
+                     IndexFormat = $"microservices-{serviceName.ToLower()}-logs" +
+                         $"-{builder.Environment.EnvironmentName.ToLower().Replace('.', '-')}" +
+                         $"-{DateTime.UtcNow:yyyy-MM-dd}",
+                     TemplateName = "microservices",
+                     AutoRegisterTemplate = true,
+                     OverwriteTemplate = true,
+                     AutoRegisterTemplateVersion = AutoRegisterTemplateVersion.ESv7,
+                     BatchAction = ElasticOpType.Create,
+                     TypeName = null,
+                 }
+             )
+             .Enrich.WithProperty("ServiceName", serviceName)
+             .Enrich.WithProperty("InstanceName", AppDomain.CurrentDomain.FriendlyName)
+             .Enrich.WithProperty("HostName", Environment.MachineName)
              .CreateLogger();
-
-var builder = WebApplication.CreateBuilder(args);
-
-Console.WriteLine("\n====================================================================");
-Console.WriteLine($"Name: {AppDomain.CurrentDomain.FriendlyName} #{Guid.NewGuid()}");
-Console.WriteLine($"Host: {Environment.MachineName}");
-Console.WriteLine("====================================================================\n");
 
 builder.Host.UseSerilog();
 

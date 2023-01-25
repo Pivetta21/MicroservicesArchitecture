@@ -4,6 +4,7 @@ using Armory.Models.Enums;
 using Armory.Models;
 using Armory.Services.Interfaces;
 using Armory.ViewModels;
+using AutoMapper;
 using Common.DTOs.DungeonEntrance;
 using FluentResults;
 using Microsoft.EntityFrameworkCore;
@@ -12,11 +13,13 @@ namespace Armory.Services;
 
 public class DungeonEntranceService : IDungeonEntranceService
 {
+    private readonly IMapper _mapper;
     private readonly ILogger<DungeonEntranceService> _logger;
     private readonly ArmoryDbContext _dbContext;
     private readonly DungeonEntranceProducer _dungeonEntranceProducer;
 
     public DungeonEntranceService(
+        IMapper mapper,
         ILogger<DungeonEntranceService> logger,
         ArmoryDbContext dbContext,
         DungeonEntranceProducer dungeonEntranceProducer
@@ -25,6 +28,21 @@ public class DungeonEntranceService : IDungeonEntranceService
         _logger = logger;
         _dbContext = dbContext;
         _dungeonEntranceProducer = dungeonEntranceProducer;
+        _mapper = mapper;
+    }
+
+    public async Task<IEnumerable<DungeonEntranceViewModel>> Get(long? characterId, DungeonEntranceStatusEnum? status)
+    {
+        var entranceQuery = _dbContext.DungeonEntrances.AsQueryable();
+
+        if (characterId != null)
+            entranceQuery = entranceQuery.Where(de => de.CharacterId == characterId);
+
+        if (status != null)
+            entranceQuery = entranceQuery.Where(de => de.Status == status);
+
+        var entrances = await entranceQuery.OrderByDescending(c => c.Id).ToListAsync();
+        return _mapper.Map<IEnumerable<DungeonEntranceViewModel>>(entrances);
     }
 
     public async Task<Result<string>> RegisterEntrance(DungeonRegisterEntranceViewModel body, Guid dungeonTransactionId)
