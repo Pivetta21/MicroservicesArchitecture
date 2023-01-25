@@ -69,11 +69,7 @@ public class DungeonEntranceService : IDungeonEntranceService
                     break;
             }
 
-            _logger.LogInformation(
-                "Event {DungeonEntranceEvent} for dungeon entrance {DungeonEntranceTransactionId} was successfully processed",
-                dto.DungeonEntranceEvent,
-                dto.DungeonEntranceTransactionId
-            );
+            LogInformation(dto, "Successfully processed");
 
             await transaction.CommitAsync();
             return;
@@ -81,25 +77,20 @@ public class DungeonEntranceService : IDungeonEntranceService
         catch (DungeonEntranceFeeException feeEx)
         {
             PublishRollbackChargeFee(
-                dungeonEntranceTransactionId: dto.DungeonEntranceTransactionId,
+                dto: dto,
                 errorMessage: feeEx.Message
             );
         }
         catch (DungeonEntranceRollbackException rollbackEx)
         {
             PublishRollbackEntrance(
-                dungeonEntranceTransactionId: dto.DungeonEntranceTransactionId,
+                dto: dto,
                 errorMessage: rollbackEx.Message
             );
         }
         catch (RabbitMqException rex)
         {
-            _logger.LogCritical(
-                "Error when processing event {DungeonEntranceEvent} for dungeon entrance {DungeonEntranceTransactionId}. Message: {Message}",
-                dto.DungeonEntranceEvent,
-                dto.DungeonEntranceTransactionId,
-                rex.Message
-            );
+            LogCritical(dto, rex);
         }
 
         await transaction.RollbackAsync();
@@ -126,13 +117,9 @@ public class DungeonEntranceService : IDungeonEntranceService
         _dbContext.DungeonEntrances.Add(dungeonEntrance);
 
         if (await _dbContext.SaveChangesAsync() <= 0)
-            throw new DungeonEntranceRollbackException($"Dungeon entrance {dto.DungeonTransactionId} could not be created");
+            throw new DungeonEntranceRollbackException($"Entrance could not be created");
 
-        _logger.LogInformation(
-            "Dungeon entrance {DungeonEntranceTransactionId} persisted successfully, sending {DungeonEntranceEvent} event to Armory queue",
-            dungeonEntrance.TransactionId,
-            DungeonEntranceEventEnum.ChargeFee
-        );
+        LogInformation(dto, "Dungeon entrance persisted successfully");
 
         _dungeonEntranceProducer.Publish(
             @event: new DungeonEntranceGameDto
@@ -140,6 +127,8 @@ public class DungeonEntranceService : IDungeonEntranceService
                 DungeonEntranceTransactionId = dungeonEntrance.TransactionId,
                 DungeonEntranceEvent = DungeonEntranceEventEnum.ChargeFee,
                 DungeonCost = dungeon.Cost,
+                SagaName = dto.SagaName,
+                SagaCorrelationId = dto.SagaCorrelationId,
             }
         );
     }
@@ -152,34 +141,29 @@ public class DungeonEntranceService : IDungeonEntranceService
             throw new DungeonEntranceFeeException($"Dungeon with uuid {dto.DungeonTransactionId} not found");
 
         dungeonEntrance.Processed = true;
-
         _dbContext.DungeonEntrances.Update(dungeonEntrance);
 
         if (await _dbContext.SaveChangesAsync() <= 0)
-            throw new DungeonEntranceFeeException($"Dungeon entrance {dto.DungeonTransactionId} could not be processed");
+            throw new DungeonEntranceFeeException("Entrance could not be marked as processed");
 
-        _logger.LogInformation(
-            "Dungeon entrance {DungeonEntranceTransactionId} processed successfully",
-            dungeonEntrance.TransactionId
-        );
+        LogInformation(dto, "Entrance was successfully marked as processed");
     }
 
     private async Task ConsumeProcessEntranceError(DungeonEntranceArmoryDto dto)
     {
-        var entranceGuid = dto.DungeonEntranceTransactionId;
-        var dungeonEntrance = await GetDungeonEntranceByTransactionId(entranceGuid);
+        var dungeonEntrance = await GetDungeonEntranceByTransactionId(dto.DungeonEntranceTransactionId);
 
         if (dungeonEntrance == null)
-            throw new DungeonEntranceRollbackException($"Dungeon entrance not found {entranceGuid}");
+            throw new DungeonEntranceRollbackException("Entrance not found");
 
         _dbContext.DungeonEntrances.Remove(dungeonEntrance);
 
         if (await _dbContext.SaveChangesAsync() <= 0)
-            throw new RabbitMqException($"Dungeon entrance {dungeonEntrance.TransactionId} could not be removed");
+            throw new RabbitMqException("Entrance could not be removed");
 
         PublishRollbackEntrance(
-            dungeonEntranceTransactionId: dungeonEntrance.TransactionId,
-            errorMessage: $"Dungeon entrance {dungeonEntrance.TransactionId} was successfully removed"
+            dto: dto,
+            errorMessage: "Entrance was successfully removed"
         );
     }
 
@@ -190,37 +174,58 @@ public class DungeonEntranceService : IDungeonEntranceService
                .FirstOrDefaultAsync(x => x.TransactionId == transactionId);
     }
 
-    private void PublishRollbackEntrance(Guid dungeonEntranceTransactionId, string errorMessage)
+    private void PublishRollbackEntrance(DungeonEntranceArmoryDto dto, string errorMessage)
+    {
+        var @event = new DungeonEntranceGameDto
+        {
+            DungeonEntranceTransactionId = dto.DungeonEntranceTransactionId,
+            DungeonEntranceEvent = DungeonEntranceEventEnum.RollbackEntrance,
+            SagaName = dto.SagaName,
+            SagaCorrelationId = dto.SagaCorrelationId,
+        };
+
+        LogInformation(dto, $"Sending {@event.DungeonEntranceEvent} event to armory queue. Error message: {errorMessage}");
+
+        _dungeonEntranceProducer.Publish(@event);
+    }
+
+    private void PublishRollbackChargeFee(DungeonEntranceArmoryDto dto, string errorMessage)
+    {
+        var @event = new DungeonEntranceGameDto
+        {
+            DungeonEntranceTransactionId = dto.DungeonEntranceTransactionId,
+            DungeonEntranceEvent = DungeonEntranceEventEnum.RollbackChargeFee,
+            SagaName = dto.SagaName,
+            SagaCorrelationId = dto.SagaCorrelationId,
+        };
+
+        LogInformation(dto, $"Sending {@event.DungeonEntranceEvent} event to armory queue. Error message: {errorMessage}");
+
+        _dungeonEntranceProducer.Publish(@event);
+    }
+
+    private void LogInformation(DungeonEntranceArmoryDto dto, string message)
     {
         _logger.LogInformation(
-            "{}, sending {DungeonEntranceEvent} event to Armory queue",
-            errorMessage,
-            DungeonEntranceEventEnum.RollbackEntrance
-        );
-
-        _dungeonEntranceProducer.Publish(
-            @event: new DungeonEntranceGameDto
-            {
-                DungeonEntranceTransactionId = dungeonEntranceTransactionId,
-                DungeonEntranceEvent = DungeonEntranceEventEnum.RollbackEntrance,
-            }
+            "[{SagaName} #{SagaCorrelationId}] [DungeonEntrance #{TransactionId}] [{EventName}] {EventMessage}",
+            dto.SagaName,
+            dto.SagaCorrelationId,
+            dto.DungeonEntranceTransactionId,
+            dto.DungeonEntranceEvent,
+            message
         );
     }
 
-    private void PublishRollbackChargeFee(Guid dungeonEntranceTransactionId, string errorMessage)
+    private void LogCritical(DungeonEntranceArmoryDto dto, Exception ex)
     {
-        _logger.LogInformation(
-            "{}, sending {DungeonEntranceEvent} to Armory queue",
-            errorMessage,
-            DungeonEntranceEventEnum.RollbackChargeFee
-        );
-
-        _dungeonEntranceProducer.Publish(
-            @event: new DungeonEntranceGameDto
-            {
-                DungeonEntranceTransactionId = dungeonEntranceTransactionId,
-                DungeonEntranceEvent = DungeonEntranceEventEnum.RollbackChargeFee,
-            }
+        _logger.LogCritical(
+            ex,
+            "[{SagaName} #{SagaCorrelationId}] [DungeonEntrance #{TransactionId}] [{EventName}] Failed to process. Message: {EventMessage}",
+            dto.SagaName,
+            dto.SagaCorrelationId,
+            dto.DungeonEntranceTransactionId,
+            dto.DungeonEntranceEvent,
+            string.IsNullOrEmpty(ex.Message) ? "Unknown error" : ex.Message
         );
     }
 }

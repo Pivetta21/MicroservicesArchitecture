@@ -1,8 +1,9 @@
 using Common.DTOs.Item;
+using Common.RabbitMq;
 
 namespace Common.DTOs.PlayDungeon;
 
-public class PlayDungeonReplyDto
+public class PlayDungeonReplyDto : SagaInfo
 {
     public required PlayDungeonEventEnum PlayDungeonEvent { get; set; }
 

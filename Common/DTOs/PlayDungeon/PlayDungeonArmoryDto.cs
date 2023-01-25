@@ -1,6 +1,8 @@
+using Common.RabbitMq;
+
 namespace Common.DTOs.PlayDungeon;
 
-public class PlayDungeonArmoryDto
+public class PlayDungeonArmoryDto : SagaInfo
 {
     public required PlayDungeonEventEnum PlayDungeonEvent { get; set; }
 

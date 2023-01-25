@@ -30,7 +30,7 @@ public class DungeonEntranceConsumer : RabbitMqConsumerBase, IHostedService
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Consumer '{ConsumerName}' started", ConsumerName);
+        _logger.LogInformation("Consumer {ConsumerName} started", ConsumerName);
         return Task.CompletedTask;
     }
 
@@ -38,7 +38,7 @@ public class DungeonEntranceConsumer : RabbitMqConsumerBase, IHostedService
     {
         base.Dispose();
 
-        _logger.LogInformation("Consumer '{ConsumerName}' stopped", ConsumerName);
+        _logger.LogInformation("Consumer {ConsumerName} stopped", ConsumerName);
         return Task.CompletedTask;
     }
 
@@ -47,45 +47,56 @@ public class DungeonEntranceConsumer : RabbitMqConsumerBase, IHostedService
         if (Channel?.IsClosed ?? true)
             base.CreateChannel();
 
+        var messageByteArray = @event.Body.ToArray();
+        var messageUtf8String = Encoding.UTF8.GetString(messageByteArray);
         var messageCorrelationId = @event.BasicProperties.CorrelationId;
 
-        _logger.LogInformation(
-            "Message {MessageCorrelationId} is being processed by {ConsumerName}",
-            messageCorrelationId,
-            ConsumerName
-        );
+        var sagaInfo = JsonSerializer.Deserialize<SagaInfo>(messageUtf8String);
 
         try
         {
-            var message = Encoding.UTF8.GetString(@event.Body.ToArray());
-            var dungeonEntranceDto = JsonSerializer.Deserialize<DungeonEntranceGameDto>(message);
+            var dungeonEntranceDto = JsonSerializer.Deserialize<DungeonEntranceGameDto>(messageUtf8String);
 
             if (dungeonEntranceDto == null)
-                throw new Exception("Message could not be parsed to its respective DTO");
+                throw new Exception("Byte array could not be parsed to its respective DTO");
 
             using var scope = _serviceScopeFactory.CreateScope();
             var service = scope.ServiceProvider.GetRequiredService<IDungeonEntranceService>();
 
             await service.ProcessDungeonEntrance(dungeonEntranceDto);
 
-            _logger.LogInformation(
-                "Message {MessageCorrelationId} was consumed successfully by {ConsumerName}",
-                messageCorrelationId,
-                ConsumerName
-            );
+            LogInformation(sagaInfo, $"Message {messageCorrelationId} was consumed successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(
-                ex,
-                "An error happened while message {MessageCorrelationId} was being consumed by {ConsumerName}",
-                messageCorrelationId,
-                ConsumerName
-            );
+            LogError(sagaInfo, ex);
         }
         finally
         {
             Channel?.BasicAck(@event.DeliveryTag, false);
         }
+    }
+
+    protected override void LogInformation(SagaInfo? sagaInfo, string message)
+    {
+        _logger.LogInformation(
+            "[{SagaName} #{SagaCorrelationId}] [{ConsumerName}] {ConsumerMessage}",
+            sagaInfo?.SagaName,
+            sagaInfo?.SagaCorrelationId,
+            ConsumerName,
+            message
+        );
+    }
+
+    protected override void LogError(SagaInfo? sagaInfo, Exception ex)
+    {
+        _logger.LogError(
+            ex,
+            "[{SagaName} #{SagaCorrelationId}] [{ConsumerName}] Erro to consume. Message: {ConsumerMessage}",
+            sagaInfo?.SagaName,
+            sagaInfo?.SagaCorrelationId,
+            ConsumerName,
+            string.IsNullOrEmpty(ex.Message) ? "Unknown error" : ex.Message
+        );
     }
 }

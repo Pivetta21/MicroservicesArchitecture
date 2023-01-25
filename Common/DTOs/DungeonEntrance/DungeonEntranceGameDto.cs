@@ -1,6 +1,8 @@
+using Common.RabbitMq;
+
 namespace Common.DTOs.DungeonEntrance;
 
-public class DungeonEntranceGameDto
+public class DungeonEntranceGameDto : SagaInfo
 {
     public required DungeonEntranceEventEnum DungeonEntranceEvent { get; set; }
 

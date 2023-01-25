@@ -20,7 +20,7 @@ Log.Logger = new LoggerConfiguration()
              .MinimumLevel.Information()
              .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
              .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)
-             .MinimumLevel.Override("Armory", LogEventLevel.Information)
+             .MinimumLevel.Override(serviceName, LogEventLevel.Information)
              .WriteTo.Console()
              .WriteTo.Elasticsearch(
                  options: new ElasticsearchSinkOptions(node: new Uri(builder.Configuration["Elasticsearch:Url"] ?? ""))

@@ -26,4 +26,8 @@ public abstract class RabbitMqConsumerBase : RabbitMqClientBase
     }
 
     protected abstract Task OnEventReceived(object? sender, BasicDeliverEventArgs @event);
+
+    protected abstract void LogInformation(SagaInfo? sagaInfo, string message);
+
+    protected abstract void LogError(SagaInfo? sagaInfo, Exception ex);
 }

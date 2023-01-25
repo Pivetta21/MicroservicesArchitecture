@@ -6,6 +6,7 @@ using Armory.Services.Interfaces;
 using Armory.ViewModels;
 using AutoMapper;
 using Common.DTOs.PlayDungeon;
+using Common.RabbitMq.Enums;
 using FluentResults;
 using Microsoft.EntityFrameworkCore;
 
@@ -40,10 +41,19 @@ public class DungeonService : IDungeonService
 
         var entrance = await _dbContext
                              .DungeonEntrances
-                             .FirstOrDefaultAsync(de => de.TransactionId == dungeonEntranceTransactionId);
+                             .Include(de => de.Character)
+                             .FirstOrDefaultAsync(de =>
+                                 de.TransactionId == dungeonEntranceTransactionId &&
+                                 de.Character.TransactionId == playDungeonViewModel.CharacterTransactionId
+                             );
 
         if (entrance == null)
             return Result.Fail<DungeonEntranceViewModel>($"Dungeon entrance {dungeonEntranceTransactionId} not found");
+
+        if (entrance.Status != DungeonEntranceStatusEnum.ReadyToUse)
+            return Result.Fail<DungeonEntranceViewModel>(
+                $"Dungeon entrance {entrance.DungeonTransactionId} cannot be used, current status: {entrance.Status}"
+            );
 
         entrance.Status = DungeonEntranceStatusEnum.AwaitingProcessing;
         _dbContext.DungeonEntrances.Update(entrance);
@@ -51,13 +61,16 @@ public class DungeonService : IDungeonService
         if (await _dbContext.SaveChangesAsync() <= 0)
             return Result.Fail<DungeonEntranceViewModel>($"Dungeon entrance {entrance.TransactionId} could not be updated");
 
-        _playDungeonGameRequestProducer.Publish(
-            @event: new PlayDungeonGameDto
-            {
-                PlayDungeonEvent = PlayDungeonEventEnum.PlayDungeon,
-                DungeonEntranceTransactionId = entrance.TransactionId,
-            }
-        );
+        var @event = new PlayDungeonGameDto
+        {
+            PlayDungeonEvent = PlayDungeonEventEnum.PlayDungeon,
+            DungeonEntranceTransactionId = entrance.TransactionId,
+            SagaName = SagasEnum.PlayDungeonOrchestration,
+            SagaCorrelationId = Guid.NewGuid(),
+        };
+
+        // Starts play dungeon saga
+        _playDungeonGameRequestProducer.Publish(@event);
 
         return Result.Ok(_mapper.Map<DungeonEntranceViewModel>(entrance));
     }
@@ -78,11 +91,7 @@ public class DungeonService : IDungeonService
                     break;
             }
 
-            _logger.LogInformation(
-                "Event {PlayDungeonEvent} for dungeon entrance {DungeonEntranceTransactionId} was successfully processed",
-                dto.PlayDungeonEvent,
-                dto.DungeonEntranceTransactionId
-            );
+            LogInformation(dto, "Successfully processed");
 
             await transaction.CommitAsync();
             return;
@@ -90,18 +99,13 @@ public class DungeonService : IDungeonService
         catch (PlayDungeonFinishException finishEx)
         {
             PublishDungeonErrorToFinish(
-                dungeonEntranceTransactionId: dto.DungeonEntranceTransactionId,
-                finishEx.Message
+                dto: dto,
+                errorMessage: finishEx.Message
             );
         }
         catch (RabbitMqException rex)
         {
-            _logger.LogCritical(
-                "Error when processing event {PlayDungeonEvent} for dungeon entrance {DungeonEntranceTransactionId}. Message: {Message}",
-                dto.PlayDungeonEvent,
-                dto.DungeonEntranceTransactionId,
-                rex.Message
-            );
+            LogCritical(dto, rex);
         }
 
         await transaction.RollbackAsync();
@@ -125,10 +129,7 @@ public class DungeonService : IDungeonService
             if (await _dbContext.SaveChangesAsync() <= 0)
                 throw new PlayDungeonFinishException($"Could not update dungeon entrance {entrance.TransactionId} status to processed");
 
-            _logger.LogInformation(
-                "Dungeon entrance {DungeonEntranceTransactionId} was successfully played, but the dungeon failed and thus no reward earned",
-                entrance.TransactionId
-            );
+            LogInformation(dto, "Entrance was successfully played, but the dungeon failed and thus no reward earned");
 
             return;
         }
@@ -182,6 +183,7 @@ public class DungeonService : IDungeonService
             >= 12000 => 10,
             _ => 1,
         };
+
         _dbContext.DungeonEntrances.Update(entrance);
 
         if (await _dbContext.SaveChangesAsync() <= 0)
@@ -193,10 +195,7 @@ public class DungeonService : IDungeonService
         if (await _dbContext.SaveChangesAsync() <= 0)
             throw new PlayDungeonFinishException($"Could not update dungeon entrance {entrance.TransactionId} status to processed");
 
-        _logger.LogInformation(
-            "Dungeon entrance {DungeonEntranceTransactionId} was successfully played, dungeon completed and thus a reward has been awarded",
-            entrance.TransactionId
-        );
+        LogInformation(dto, "Entrance was successfully played, dungeon completed and thus a reward has been awarded");
     }
 
     private async Task ConsumeDungeonErrorToFinish(PlayDungeonReplyDto dto)
@@ -224,20 +223,43 @@ public class DungeonService : IDungeonService
             throw new RabbitMqException($"Something went wrong when update status to {DungeonEntranceStatusEnum.ProcessedWithError}");
     }
 
-    private void PublishDungeonErrorToFinish(Guid dungeonEntranceTransactionId, string errorMessage)
+    private void PublishDungeonErrorToFinish(PlayDungeonReplyDto dto, string errorMessage)
+    {
+        var @event = new PlayDungeonReplyDto
+        {
+            PlayDungeonEvent = PlayDungeonEventEnum.DungeonErrorToFinish,
+            DungeonEntranceTransactionId = dto.DungeonEntranceTransactionId,
+            SagaName = dto.SagaName,
+            SagaCorrelationId = dto.SagaCorrelationId,
+        };
+
+        LogInformation(dto, $"Sending {@event.PlayDungeonEvent} event to armory reply queue. Error message: {errorMessage}");
+
+        _playDungeonReplyProducer.Publish(@event);
+    }
+
+    private void LogInformation(PlayDungeonReplyDto dto, string message)
     {
         _logger.LogInformation(
-            "{}, sending {PlayDungeonEvent} event to armory reply queue",
-            errorMessage,
-            PlayDungeonEventEnum.DungeonErrorToFinish
+            "[{SagaName} #{SagaCorrelationId}] [DungeonEntrance #{TransactionId}] [{EventName}] {EventMessage}",
+            dto.SagaName,
+            dto.SagaCorrelationId,
+            dto.DungeonEntranceTransactionId,
+            dto.PlayDungeonEvent,
+            message
         );
+    }
 
-        _playDungeonReplyProducer.Publish(
-            @event: new PlayDungeonReplyDto
-            {
-                PlayDungeonEvent = PlayDungeonEventEnum.DungeonErrorToFinish,
-                DungeonEntranceTransactionId = dungeonEntranceTransactionId,
-            }
+    private void LogCritical(PlayDungeonReplyDto dto, Exception ex)
+    {
+        _logger.LogCritical(
+            ex,
+            "[{SagaName} #{SagaCorrelationId}] [DungeonEntrance #{TransactionId}] [{EventName}] Failed to process. Message: {EventMessage}",
+            dto.SagaName,
+            dto.SagaCorrelationId,
+            dto.DungeonEntranceTransactionId,
+            dto.PlayDungeonEvent,
+            string.IsNullOrEmpty(ex.Message) ? "Unknown error" : ex.Message
         );
     }
 }

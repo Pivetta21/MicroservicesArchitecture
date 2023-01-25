@@ -31,18 +31,23 @@ public class DungeonEntranceProducer : RabbitMqProducerBase, IRabbitMqProducer<D
             BasicPublish(body);
 
             _logger.LogInformation(
-                "Successfully published a {DungeonEntranceEvent} event for dungeon entrance {DungeonEntranceTransactionId}",
-                @event.DungeonEntranceEvent,
-                @event.DungeonEntranceTransactionId
+                "[{SagaName} #{SagaCorrelationId}] [DungeonEntrance #{TransactionId}] Successfully published a {EventName} event",
+                @event.SagaName,
+                @event.SagaCorrelationId,
+                @event.DungeonEntranceTransactionId,
+                @event.DungeonEntranceEvent
             );
         }
         catch (Exception ex)
         {
             _logger.LogError(
                 ex,
-                "Publishing a {DungeonEntranceEvent} for dungeon entrance {DungeonEntranceTransactionId} failed",
+                "[{SagaName} #{SagaCorrelationId}] [DungeonEntrance #{TransactionId}] Publish of {EventName} event failed. Message: {ProducerMessage}",
+                @event.SagaName,
+                @event.SagaCorrelationId,
+                @event.DungeonEntranceTransactionId,
                 @event.DungeonEntranceEvent,
-                @event.DungeonEntranceTransactionId
+                string.IsNullOrEmpty(ex.Message) ? "Unknown error" : ex.Message
             );
         }
     }
