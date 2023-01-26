@@ -59,7 +59,7 @@ public class DungeonEntranceService : IDungeonEntranceService
         {
             Character = character,
             DungeonTransactionId = body.DungeonTransactionId,
-            TransactionId = body.DungeonTransactionId,
+            TransactionId = Guid.NewGuid(),
             Status = DungeonEntranceStatusEnum.RegistrationRequested,
             Deleted = false,
         };
@@ -73,7 +73,7 @@ public class DungeonEntranceService : IDungeonEntranceService
         var @event = new DungeonEntranceArmoryDto
         {
             DungeonEntranceEvent = DungeonEntranceEventEnum.RegisterEntrance,
-            DungeonTransactionId = body.DungeonTransactionId,
+            DungeonTransactionId = entrance.DungeonTransactionId,
             DungeonEntranceTransactionId = entrance.TransactionId,
             CharacterTransactionId = entrance.Character.TransactionId,
             SagaName = SagasEnum.DungeonEntranceChoreography,
