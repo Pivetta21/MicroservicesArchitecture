@@ -9,6 +9,7 @@ using Common.DTOs.PlayDungeon;
 using Common.RabbitMq.Enums;
 using FluentResults;
 using Microsoft.EntityFrameworkCore;
+using RabbitMQ.Client;
 
 namespace Armory.Services;
 
@@ -61,21 +62,25 @@ public class DungeonService : IDungeonService
         if (await _dbContext.SaveChangesAsync() <= 0)
             return Result.Fail<DungeonEntranceViewModel>($"Dungeon entrance {entrance.TransactionId} could not be updated");
 
+        // Starts play dungeon orchestration saga
+        var sagaInfo = new SagaInfo
+        {
+            SagaName = SagasEnum.PlayDungeonOrchestration.ToString(),
+            SagaCorrelationId = Guid.NewGuid().ToString(),
+        };
+
         var @event = new PlayDungeonGameDto
         {
             PlayDungeonEvent = PlayDungeonEventEnum.PlayDungeon,
             DungeonEntranceTransactionId = entrance.TransactionId,
-            SagaName = SagasEnum.PlayDungeonOrchestration,
-            SagaCorrelationId = Guid.NewGuid(),
         };
 
-        // Starts play dungeon saga
-        _playDungeonGameRequestProducer.Publish(@event);
+        _playDungeonGameRequestProducer.Publish(@event, sagaInfo);
 
         return Result.Ok(_mapper.Map<DungeonEntranceViewModel>(entrance));
     }
 
-    public async Task ProcessPlayDungeonReply(PlayDungeonReplyDto dto)
+    public async Task ProcessPlayDungeonReply(PlayDungeonReplyDto dto, SagaInfo sagaInfo, IBasicProperties props)
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
@@ -84,14 +89,14 @@ public class DungeonService : IDungeonService
             switch (dto.PlayDungeonEvent)
             {
                 case PlayDungeonEventEnum.DungeonFinished:
-                    await ConsumeDungeonFinished(dto);
+                    await ConsumeDungeonFinished(dto, sagaInfo, props);
                     break;
                 case PlayDungeonEventEnum.DungeonErrorToFinish:
-                    await ConsumeDungeonErrorToFinish(dto);
+                    await ConsumeDungeonErrorToFinish(dto, props);
                     break;
             }
 
-            LogInformation(dto, "Successfully processed");
+            LogInformation(sagaInfo, dto, "Successfully processed");
 
             await transaction.CommitAsync();
             return;
@@ -99,19 +104,21 @@ public class DungeonService : IDungeonService
         catch (PlayDungeonFinishException finishEx)
         {
             PublishDungeonErrorToFinish(
+                props: props,
+                sagaInfo: sagaInfo,
                 dto: dto,
                 errorMessage: finishEx.Message
             );
         }
         catch (RabbitMqException rex)
         {
-            LogCritical(dto, rex);
+            LogCritical(sagaInfo, dto, rex);
         }
 
         await transaction.RollbackAsync();
     }
 
-    private async Task ConsumeDungeonFinished(PlayDungeonReplyDto dto)
+    private async Task ConsumeDungeonFinished(PlayDungeonReplyDto dto, SagaInfo sagaInfo, IBasicProperties basicProperties)
     {
         var entranceGuid = dto.DungeonEntranceTransactionId;
         var entrance = await _dbContext.DungeonEntrances
@@ -129,7 +136,7 @@ public class DungeonService : IDungeonService
             if (await _dbContext.SaveChangesAsync() <= 0)
                 throw new PlayDungeonFinishException($"Could not update dungeon entrance {entrance.TransactionId} status to processed");
 
-            LogInformation(dto, "Entrance was successfully played, but the dungeon failed and thus no reward earned");
+            LogInformation(sagaInfo, dto, "Entrance was successfully played, but the dungeon failed and thus no reward earned");
 
             return;
         }
@@ -195,10 +202,10 @@ public class DungeonService : IDungeonService
         if (await _dbContext.SaveChangesAsync() <= 0)
             throw new PlayDungeonFinishException($"Could not update dungeon entrance {entrance.TransactionId} status to processed");
 
-        LogInformation(dto, "Entrance was successfully played, dungeon completed and thus a reward has been awarded");
+        LogInformation(sagaInfo, dto, "Entrance was successfully played, dungeon completed and thus a reward has been awarded");
     }
 
-    private async Task ConsumeDungeonErrorToFinish(PlayDungeonReplyDto dto)
+    private async Task ConsumeDungeonErrorToFinish(PlayDungeonReplyDto dto, IBasicProperties basicProperties)
     {
         var entrance = await _dbContext.DungeonEntrances
                                        .Include(de => de.Character)
@@ -223,40 +230,38 @@ public class DungeonService : IDungeonService
             throw new RabbitMqException($"Something went wrong when update status to {DungeonEntranceStatusEnum.ProcessedWithError}");
     }
 
-    private void PublishDungeonErrorToFinish(PlayDungeonReplyDto dto, string errorMessage)
+    private void PublishDungeonErrorToFinish(IBasicProperties props, SagaInfo sagaInfo, PlayDungeonReplyDto dto, string errorMessage)
     {
         var @event = new PlayDungeonReplyDto
         {
             PlayDungeonEvent = PlayDungeonEventEnum.DungeonErrorToFinish,
             DungeonEntranceTransactionId = dto.DungeonEntranceTransactionId,
-            SagaName = dto.SagaName,
-            SagaCorrelationId = dto.SagaCorrelationId,
         };
 
-        LogInformation(dto, $"Sending {@event.PlayDungeonEvent} event to armory reply queue. Error message: {errorMessage}");
+        LogInformation(sagaInfo, dto, $"Sending {@event.PlayDungeonEvent} event to armory reply queue. Error message: {errorMessage}");
 
-        _playDungeonReplyProducer.Publish(@event);
+        _playDungeonReplyProducer.Publish(@event, props);
     }
 
-    private void LogInformation(PlayDungeonReplyDto dto, string message)
+    private void LogInformation(SagaInfo sagaInfo, PlayDungeonReplyDto dto, string message)
     {
         _logger.LogInformation(
             "[{SagaName} #{SagaCorrelationId}] [DungeonEntrance #{TransactionId}] [{EventName}] {EventMessage}",
-            dto.SagaName,
-            dto.SagaCorrelationId,
+            sagaInfo.SagaName,
+            sagaInfo.SagaCorrelationId,
             dto.DungeonEntranceTransactionId,
             dto.PlayDungeonEvent,
             message
         );
     }
 
-    private void LogCritical(PlayDungeonReplyDto dto, Exception ex)
+    private void LogCritical(SagaInfo sagaInfo, PlayDungeonReplyDto dto, Exception ex)
     {
         _logger.LogCritical(
             ex,
             "[{SagaName} #{SagaCorrelationId}] [DungeonEntrance #{TransactionId}] [{EventName}] Failed to process. Message: {EventMessage}",
-            dto.SagaName,
-            dto.SagaCorrelationId,
+            sagaInfo.SagaName,
+            sagaInfo.SagaCorrelationId,
             dto.DungeonEntranceTransactionId,
             dto.PlayDungeonEvent,
             string.IsNullOrEmpty(ex.Message) ? "Unknown error" : ex.Message

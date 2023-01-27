@@ -17,29 +17,27 @@ public abstract class RabbitMqProducerBase : RabbitMqClientBase
 
     protected void BasicPublish(
         byte[] body,
-        IBasicProperties? properties = null
+        IBasicProperties properties
     )
     {
-        if (Channel?.IsClosed ?? true)
-        {
-            Console.WriteLine("Could not publish because the channel is closed");
-            return;
-        }
-
-        if (properties == null)
-        {
-            properties = Channel.CreateBasicProperties();
-            properties.AppId = AppDomain.CurrentDomain.FriendlyName;
-            properties.Timestamp = new AmqpTimestamp(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-            properties.CorrelationId = Guid.NewGuid().ToString();
-            properties.ContentType = "application/json";
-        }
-
         Channel.BasicPublish(
             exchange: _exchange,
             routingKey: _routingKey,
             body: new ReadOnlyMemory<byte>(body),
             basicProperties: properties
         );
+    }
+
+    protected IBasicProperties CreateBasicProperties(SagaInfo sagaInfo)
+    {
+        var properties = Channel!.CreateBasicProperties();
+
+        properties.ContentType = "application/json";
+
+        properties.Headers ??= new Dictionary<string, object>();
+        properties.Headers.Add(SagaInfo.SagaNameKey, sagaInfo.SagaName);
+        properties.Headers.Add(SagaInfo.CorrelationIdKey, sagaInfo.SagaCorrelationId);
+
+        return properties;
     }
 }

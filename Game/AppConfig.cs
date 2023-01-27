@@ -1,7 +1,12 @@
+using System.Diagnostics;
+
 namespace Game;
 
 public static class AppConfig
 {
+
+    #region Application
+
     public const string ServiceName = "Microservices.Game.API";
     public static readonly string InstanceUuid = Guid.NewGuid().ToString();
     public static readonly string InstanceName = AppDomain.CurrentDomain.FriendlyName;
@@ -16,4 +21,14 @@ public static class AppConfig
         Console.WriteLine($"[HostName] {HostName}");
         Console.WriteLine("====================================================================\n");
     }
+
+    #endregion
+
+    #region Distributed Tracing
+
+    public static readonly ActivitySource DungeonEntranceSource = new($"{ServiceName}.DungeonEntrance");
+    public static readonly ActivitySource PlayDungeonSource = new($"{ServiceName}.PlayDungeon");
+
+    #endregion
+
 }

@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Common.DTOs.DungeonEntrance;
 using Common.RabbitMq.Enums;
 using Game.Services.Interfaces;
+using OpenTelemetry;
 using RabbitMQ.Client.Events;
 
 namespace Game.AsyncDataServices;
@@ -51,7 +53,7 @@ public class DungeonEntranceConsumer : RabbitMqConsumerBase, IHostedService
         var messageUtf8String = Encoding.UTF8.GetString(messageByteArray);
         var messageCorrelationId = @event.BasicProperties.CorrelationId;
 
-        var sagaInfo = JsonSerializer.Deserialize<SagaInfo>(messageUtf8String);
+        var sagaInfo = SagaInfo.ExtractSagaInfo(@event.BasicProperties);
 
         LogInformation(sagaInfo, $"Message {messageCorrelationId} is being processed");
 
@@ -59,15 +61,20 @@ public class DungeonEntranceConsumer : RabbitMqConsumerBase, IHostedService
         {
             var dungeonEntranceDto = JsonSerializer.Deserialize<DungeonEntranceArmoryDto>(messageUtf8String);
 
+            var parentContext = RabbitMqTracingUtil.ExtractParentContext(@event.BasicProperties);
+            Baggage.Current = parentContext.Baggage;
+            using var activity = AppConfig.DungeonEntranceSource.StartActivity(ActivityKind.Consumer, parentContext.ActivityContext);
+            RabbitMqTracingUtil.AddActivityTags(activity, Queue.ToString(), dungeonEntranceDto?.DungeonEntranceEvent.ToString());
+
             if (dungeonEntranceDto == null)
                 throw new Exception("Byte array could not be parsed to its respective DTO");
 
             using var scope = _serviceScopeFactory.CreateScope();
             var service = scope.ServiceProvider.GetRequiredService<IDungeonEntranceService>();
 
-            await service.ProcessDungeonEntrance(dungeonEntranceDto);
+            await service.ProcessDungeonEntrance(dungeonEntranceDto, sagaInfo, @event.BasicProperties);
 
-            LogInformation(sagaInfo, $"Message {messageCorrelationId} was consumed successfully");
+            LogInformation(sagaInfo, "Message was consumed successfully");
         }
         catch (Exception ex)
         {

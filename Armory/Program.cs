@@ -64,6 +64,8 @@ builder.Services.AddOpenTelemetry()
 
                tracerProviderBuilder.AddEntityFrameworkCoreInstrumentation();
 
+               tracerProviderBuilder.AddSource(AppConfig.DungeonEntranceSource.Name);
+               tracerProviderBuilder.AddSource(AppConfig.PlayDungeonSource.Name);
 
                tracerProviderBuilder.AddJaegerExporter(jaegerOptions =>
                    {
@@ -72,7 +74,7 @@ builder.Services.AddOpenTelemetry()
                    }
                );
 
-               tracerProviderBuilder.AddConsoleExporter();
+               // tracerProviderBuilder.AddConsoleExporter();
            }
        )
        .StartWithHost();
