@@ -1,6 +1,10 @@
+using Armory;
 using Armory.Data;
 using Armory.IoC;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using RabbitMQ.Client;
 using Serilog;
 using Serilog.Events;
@@ -8,24 +12,18 @@ using Serilog.Sinks.Elasticsearch;
 
 var builder = WebApplication.CreateBuilder(args);
 
-const string serviceName = "Armory";
-
-Console.WriteLine("\n====================================================================");
-Console.WriteLine($"App: {serviceName} #{Guid.NewGuid()}");
-Console.WriteLine($"Name: {AppDomain.CurrentDomain.FriendlyName}");
-Console.WriteLine($"Host: {Environment.MachineName}");
-Console.WriteLine("====================================================================\n");
+AppConfig.ShowApplicationInfo();
 
 Log.Logger = new LoggerConfiguration()
              .MinimumLevel.Information()
              .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
              .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)
-             .MinimumLevel.Override(serviceName, LogEventLevel.Information)
+             .MinimumLevel.Override(AppConfig.ServiceName, LogEventLevel.Information)
              .WriteTo.Console()
              .WriteTo.Elasticsearch(
                  options: new ElasticsearchSinkOptions(node: new Uri(builder.Configuration["Elasticsearch:Url"] ?? ""))
                  {
-                     IndexFormat = $"microservices-{serviceName.ToLower()}-logs" +
+                     IndexFormat = $"{AppConfig.ServiceName.ToLower().Replace('.', '-')}-logs" +
                          $"-{builder.Environment.EnvironmentName.ToLower().Replace('.', '-')}" +
                          $"-{DateTime.UtcNow:yyyy-MM-dd}",
                      TemplateName = "microservices",
@@ -36,12 +34,48 @@ Log.Logger = new LoggerConfiguration()
                      TypeName = null,
                  }
              )
-             .Enrich.WithProperty("ServiceName", serviceName)
-             .Enrich.WithProperty("InstanceName", AppDomain.CurrentDomain.FriendlyName)
-             .Enrich.WithProperty("HostName", Environment.MachineName)
+             .Enrich.WithProperty("ServiceName", AppConfig.ServiceName)
+             .Enrich.WithProperty("InstanceName", AppConfig.InstanceName)
+             .Enrich.WithProperty("InstanceUuid", AppConfig.InstanceUuid)
+             .Enrich.WithProperty("HostName", AppConfig.HostName)
              .CreateLogger();
 
 builder.Host.UseSerilog();
+
+builder.Services.AddOpenTelemetry()
+       .WithTracing(tracerProviderBuilder =>
+           {
+               tracerProviderBuilder.SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(AppConfig.ServiceName));
+
+               tracerProviderBuilder.AddAspNetCoreInstrumentation();
+
+               tracerProviderBuilder.AddHttpClientInstrumentation(
+                   options => options.FilterHttpRequestMessage =
+                       httpRequestMessage =>
+                       {
+                           var requestHost = httpRequestMessage.RequestUri?.Host;
+                           var requestPort = httpRequestMessage.RequestUri?.Port;
+                           var requestUrl = $"{requestHost}:{requestPort}";
+
+                           var elasticSearchUrl = builder.Configuration["Elasticsearch:Url"] ?? "";
+                           return requestUrl.Contains(elasticSearchUrl);
+                       }
+               );
+
+               tracerProviderBuilder.AddEntityFrameworkCoreInstrumentation();
+
+
+               tracerProviderBuilder.AddJaegerExporter(jaegerOptions =>
+                   {
+                       jaegerOptions.AgentHost = builder.Configuration["Jaeger:Host"];
+                       jaegerOptions.AgentPort = int.Parse(builder.Configuration["Jaeger:Port"] ?? "");
+                   }
+               );
+
+               tracerProviderBuilder.AddConsoleExporter();
+           }
+       )
+       .StartWithHost();
 
 builder.Services.AddControllers();
 
