@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: game-postgres-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: game-postgres
+  template:
+    metadata:
+      labels:
+        app: game-postgres
+    spec:
+      containers:
+        - name: game-postgres
+          image: postgres:14
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: game-pgsql
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: game-pgsql
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: game-postgres-volume
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: game-postgres-volume
+          persistentVolumeClaim:
+            claimName: game-postgres-local-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: game-postgres-cluster-ip
+spec:
+  type: ClusterIP
+  selector:
+    app: game-postgres
+  ports:
+    - name: game-postgres-port
+      protocol: TCP
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: game-postgres-load-balancer
+spec:
+  type: LoadBalancer
+  selector:
+    app: game-postgres
+  ports:
+    - protocol: TCP
+      port: 5434
+      targetPort: 5432
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: game-postgres-local-pvc
+spec:
+  storageClassName: hostpath
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 200Mi

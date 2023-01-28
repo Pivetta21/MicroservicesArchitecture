@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-ingress-srv
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/use-regex: 'true'
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  rules:
+    - host: microservices.kubernetes.internal
+      http:
+        paths:
+          - path: /armory(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: armory-cluster-ip
+                port:
+                  number: 80
+          - path: /game(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: game-cluster-ip
+                port:
+                  number: 80

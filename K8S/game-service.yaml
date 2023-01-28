@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: game-deploy
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: game-service
+  template:
+    metadata:
+      labels:
+        app: game-service
+    spec:
+      containers:
+        - name: game-service
+          image: localhost:5000/game-service:latest
+          envFrom:
+            - secretRef:
+                name: game-pgsql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: game-cluster-ip
+spec:
+  type: ClusterIP
+  selector:
+    app: game-service
+  ports:
+    - name: game-service-port
+      protocol: TCP
+      port: 80
+      targetPort: 80

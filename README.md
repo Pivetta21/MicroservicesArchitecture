@@ -1,56 +1,60 @@
 # Microservices Architecture
 
-Repositório destinado à implementação da arquitetura de microsserviços e seus principais componentes.
-_________________________________________________________
+Repositório destinado a implementação da arquitetura de
+microsserviços e seus principais componentes.
+
+`` C# | .NET | PostgreSQL | RabbitMQ | ELK Stack | OpenTelemetry + Jaeger | K8S ``
+
+--------------------------------------------------------------------
 
 ## Armory Service
 
-Armazena informações dos personagens de um usuário.
+É o microsserviço responsável por manter os dados relacionados ao personagem: informações gerais, level, ouro,
+equipamentos, inventário e entradas para masmorras.
 
-### Database - PostgreSQL
+``Docker``
 
-> Dev Secrets
-
+```bash
+docker build -f Armory/Dockerfile -t localhost:5000/armory-service:latest .
 ```
-cd Armory/ 
 
-dotnet user-secrets init 
+```bash
+docker run --name armory-service -p 8080:80 localhost:5000/armory-service:latest -d
+```
 
-dotnet user-secrets set "POSTGRES_USER" "postgres" 
+``Dev Secrets``
 
+```bash
+cd ./Armory && \
+dotnet user-secrets init && \
+dotnet user-secrets set "POSTGRES_USER" "postgres" && \
 dotnet user-secrets set "POSTGRES_PASSWORD" "1234" 
-```
-
-> K8S Secrets
-
-```
-kubectl create secret generic armory-pgsql \
---from-literal=POSTGRES_USER="lucas" \
---from-literal=POSTGRES_PASSWORD="21022000"
 ```
 
 ## Game Service
 
-Possui endpoints para simular partidas e, consequentemente, gerar pontuações/itens.
+É o microsserviço responsável por manter os dados relacionados a masmorras: informações gerais,
+recompensas, histórico e informações dos itens (preço, qualidade, atributos, e etc).
 
-### Database - PostgreSQL
+``Docker``
 
-> Dev Secrets
-
-```
-cd Game/ 
-
-dotnet user-secrets init 
-
-dotnet user-secrets set "POSTGRES_USER" "postgres" 
-
-dotnet user-secrets set "POSTGRES_PASSWORD" "1234" 
+```bash
+docker build -f Game/Dockerfile -t localhost:5000/game-service:latest .
 ```
 
-> K8S Secrets
+```bash
+docker run --name game-service -p 8080:80 localhost:5000/game-service:latest -d
+```
 
+``Dev Secrets``
+
+```bash
+cd ./Game && \
+dotnet user-secrets init && \
+dotnet user-secrets set "POSTGRES_USER" "postgres" && \
+dotnet user-secrets set "POSTGRES_PASSWORD" "1234"
 ```
-kubectl create secret generic game-pgsql \
---from-literal=POSTGRES_USER="pivetta" \
---from-literal=POSTGRES_PASSWORD="20002102"
-```
+
+--------------------------------------------------------------------
+
+> O arquivo **README.md** presente na pasta **K8S** contém as informações necessárias para inicializar os microsserviços no Kubernetes.
