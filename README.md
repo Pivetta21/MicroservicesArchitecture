@@ -12,6 +12,9 @@ microsserviços e seus principais componentes.
 É o microsserviço responsável por manter os dados relacionados ao personagem: informações gerais, level, ouro,
 equipamentos, inventário e entradas para masmorras.
 
+- Url base ambiente local: http://localhost:5274
+- Url base ambiente K8S: http://microservices.kubernetes.internal:80/armory
+
 ``Docker``
 
 ```bash
@@ -35,6 +38,9 @@ dotnet user-secrets set "POSTGRES_PASSWORD" "1234"
 
 É o microsserviço responsável por manter os dados relacionados a masmorras: informações gerais,
 recompensas, histórico e informações dos itens (preço, qualidade, atributos, e etc).
+
+- Url base ambiente local: http://localhost:5058
+- Url base ambiente K8S: http://microservices.kubernetes.internal:80/game
 
 ``Docker``
 
